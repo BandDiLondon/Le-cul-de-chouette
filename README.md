@@ -96,6 +96,14 @@ Quelques choix :
 - **En ligne, chaque appareil fait tourner la même partie.** Les dés viennent d'un tirage pseudo-aléatoire à graine commune, et seules les décisions des joueurs passent par le réseau.
 - **Les réflexes en ligne** : chaque appareil chronomètre son propre joueur, puis les temps sont comparés. Les cris apparaissent après le même délai aléatoire des deux côtés, pour qu'on ne puisse pas cliquer d'avance.
 
+## Contribuer
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) : faire tourner le jeu, le modifier, les pièges du jeu en ligne.
+- [CHANGELOG.md](CHANGELOG.md) : l'historique des évolutions.
+- [SECURITY.md](SECURITY.md) : signaler une faille en privé.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) : les règles de bonne conduite.
+- [AGENTS.md](AGENTS.md) et [CLAUDE.md](CLAUDE.md) : les consignes pour les assistants de programmation.
+
 ## Licence
 
 Domaine public ([CC0 1.0](LICENSE)) : copiez, modifiez, réutilisez ce projet comme vous voulez, sans condition ni obligation de citer.
