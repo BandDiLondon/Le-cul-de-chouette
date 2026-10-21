@@ -1,0 +1,57 @@
+name: 🐞 Signaler un bug
+description: Quelque chose ne marche pas comme prévu dans le jeu
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de prendre le temps de signaler un problème !
+        Une **faille de sécurité** ne se signale pas ici : utilisez l'onglet **Security**, bouton **Report a vulnerability**.
+  - type: textarea
+    id: probleme
+    attributes:
+      label: Que s'est-il passé ?
+      description: Décrivez le problème, et ce que vous attendiez à la place.
+      placeholder: "Exemple : sur une Suite, j'ai crié le premier mais j'ai quand même perdu 10 points."
+    validations:
+      required: true
+  - type: textarea
+    id: etapes
+    attributes:
+      label: Comment le reproduire ?
+      description: Les étapes, dans l'ordre, si vous les connaissez.
+      placeholder: |
+        1. Nouvelle partie contre Arthur et Karadoc
+        2. …
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode de jeu
+      options:
+        - Solo contre l'ordinateur
+        - Tutoriel
+        - En ligne
+        - Autre (règles, sons, enregistrement des cris…)
+    validations:
+      required: true
+  - type: dropdown
+    id: joueurs
+    attributes:
+      label: Nombre de joueurs
+      options:
+        - "2"
+        - "3"
+        - "4"
+  - type: input
+    id: appareil
+    attributes:
+      label: Navigateur et appareil
+      placeholder: "Exemple : Chrome sur Windows, Safari sur iPhone"
+    validations:
+      required: true
+  - type: textarea
+    id: captures
+    attributes:
+      label: Capture d'écran ou extrait du journal
+      description: Une capture, ou les dernières lignes du journal de la partie, aident beaucoup. Vous pouvez glisser une image ici.

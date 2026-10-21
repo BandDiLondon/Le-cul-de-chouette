@@ -1,0 +1,35 @@
+name: 💡 Proposer une idée
+description: Une nouvelle fonctionnalité, une règle, un personnage…
+title: "[Idée] "
+labels: ["idée"]
+body:
+  - type: textarea
+    id: idee
+    attributes:
+      label: Votre idée
+      description: Décrivez ce que vous aimeriez voir dans le jeu.
+      placeholder: "Exemple : ajouter Bohort comme adversaire, avec des réflexes très lents mais un jeu très prudent."
+    validations:
+      required: true
+  - type: textarea
+    id: pourquoi
+    attributes:
+      label: Pourquoi ?
+      description: Ce que ça apporterait aux joueurs, ou le problème que ça résoudrait.
+  - type: dropdown
+    id: domaine
+    attributes:
+      label: Domaine
+      options:
+        - Règles du jeu
+        - Personnages et portraits
+        - Jeu en ligne
+        - Sons et voix
+        - Apparence
+        - Autre
+  - type: checkboxes
+    id: regles
+    attributes:
+      label: Règles du Cul de Chouette
+      options:
+        - label: Mon idée change une règle du jeu (je précise d'où elle vient, si possible)

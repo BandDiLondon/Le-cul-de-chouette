@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 🔒 Signaler une faille de sécurité
+    url: https://github.com/BandDiLondon/Le-cul-de-chouette/security/advisories/new
+    about: En privé, pour qu'elle ne soit pas visible de tous avant d'être corrigée.
+  - name: 🎲 Jouer au Cul de Chouette
+    url: https://banddilondon.github.io/Le-cul-de-chouette/
+    about: Le jeu, directement dans le navigateur.
