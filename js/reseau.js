@@ -39,13 +39,16 @@ const Reseau = (() => {
   function recevoir(t) {
     const f = file.get(t);
     if (f && f.length) return Promise.resolve(f.shift());
-    return new Promise(ok => {
+    return new Promise((ok, ko) => {
       if (!attentes.has(t)) attentes.set(t, []);
-      attentes.get(t).push(ok);
+      attentes.get(t).push({ ok, ko });
     });
   }
 
+  // Nouvelle manche ou connexion perdue : les attentes en cours sont abandonnées, avec le même signal
+  // ABANDON (défini dans jeu.js) que le reste du jeu, que la boucle de partie sait ignorer
   function viderFile() {
+    for (const liste of attentes.values()) for (const a of liste) a.ko(ABANDON);
     file.clear();
     attentes.clear();
   }
@@ -60,7 +63,7 @@ const Reseau = (() => {
     if (msg.t === "bonjour") return accueillir(msg.d);
     if (ecouteurs.has(msg.t)) return ecouteurs.get(msg.t)(msg.d);
     const w = attentes.get(msg.t);
-    if (w && w.length) w.shift()(msg.d);
+    if (w && w.length) w.shift().ok(msg.d);
     else {
       if (!file.has(msg.t)) file.set(msg.t, []);
       file.get(msg.t).push(msg.d);

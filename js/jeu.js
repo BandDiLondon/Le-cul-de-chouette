@@ -11,6 +11,7 @@ const NOMS = {
 const CHANCES = { chouette: 90, velute: 39, suite: 24, cul: 6, neant: 66 };
 const PLAFOND_DEFI = { chouette: 0.33, velute: 0.25, cul: 0.16 };
 const MISE_CIVET = 102;
+const PARI_OISEAU = 25; // gain d'un pari d'oiseau juste pendant un sirotage
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
 // Portraits d'émotion d'un personnage : images/emotions/<clé>-rire.jpg, -pleurs.jpg, -rage.jpg
 const emotionsDe = cle => Object.fromEntries(["rire", "pleurs", "rage"].map(e => [e, `images/emotions/${cle}-${e}.jpg`]));
@@ -719,6 +720,7 @@ function bilanReflexe(combi, rs) {
   const bevues = indices.filter(i => rs[i].res === "faux");
   let derniers = [];
   let gagnant = null;
+  let egalite = [];
   if (combi === "suite") {
     // Comme le disent les règles : « le dernier à crier, ou celui qui ne crie pas, perd 10 pts ».
     // Ceux qui n'ont pas crié sont donc toujours derniers ; sinon, le plus lent des bons cris, s'ils sont au moins deux.
@@ -731,10 +733,16 @@ function bilanReflexe(combi, rs) {
       derniers = justes.filter(i => temps(i) === pire);
     }
   } else {
+    // Le premier bon cri gagne ; en cas d'égalité parfaite, personne ne marque (comme dans les règles)
     const justes = indices.filter(i => rs[i].res === "juste");
-    if (justes.length) gagnant = justes.reduce((a, b) => temps(b) < temps(a) ? b : a);
+    if (justes.length) {
+      const meilleur = Math.min(...justes.map(temps));
+      const premiers = justes.filter(i => temps(i) === meilleur);
+      if (premiers.length === 1) gagnant = premiers[0];
+      else egalite = premiers;
+    }
   }
-  return { bevues, derniers, gagnant };
+  return { bevues, derniers, gagnant, egalite };
 }
 
 // Trois phases dans la même fenêtre : préparation (première fois, avec conseils), duel, résultat.
@@ -1086,7 +1094,7 @@ async function sirotage(j, des) {
     log(`Le dé tombe sur ${nouveau}. Raté !`, "info");
     ajouter(j, -pts, "Sirotage raté");
   }
-  for (const p of paris) if (p.n === nouveau) ajouter(p.joueur, 25, `pari « ${OISEAUX[p.n]} »`);
+  for (const p of paris) if (p.n === nouveau) ajouter(p.joueur, PARI_OISEAU, `pari « ${OISEAUX[p.n]} »`);
   await pause(400);
 }
 
@@ -1127,12 +1135,18 @@ async function civetHumain(j) {
 // Toutes passent par aleaIA() : en ligne, elles sont identiques sur les deux appareils
 const meilleurAutre = j => Math.max(...P.joueurs.filter(x => x !== j).map(x => x.score));
 
+// Les adversaires qu'un pari d'oiseau juste (+25) ferait gagner, si le joueur j sirotait :
+// à 343 pile, ceux qui sont exactement à 318 ; sinon, tous ceux qui sont à 318 ou plus
+const offreVictoire = j => P.joueurs.filter(x => x !== j &&
+  (regles.pile ? x.score + PARI_OISEAU === CIBLE : x.score + PARI_OISEAU >= CIBLE));
+
 function siroterIA(j, v) {
+  // Un Cul de Chouette gagnant passe avant tout : le lanceur est déclaré vainqueur en premier
+  if (regles.pile ? j.score + 40 + 10 * v === CIBLE : j.score + 40 + 10 * v >= CIBLE) return true;
+  // Siroter offrirait à un adversaire une chance sur 6 de gagner avec son oiseau
+  if (offreVictoire(j).length) return false;
   if (j.profil.style === "hasard") return aleaIA() < 0.5;
-  if (regles.pile) {
-    if (j.score + 40 + 10 * v === CIBLE) return true;
-    if (j.score + v * v === CIBLE) return false;
-  }
+  if (regles.pile && j.score + v * v === CIBLE) return false;
   // Espérance du sirotage : (40 + 10v)/6 − 5v²/6. Mais chaque adversaire gagne au passage un pari d'oiseau
   // (≈ 4,2 pts) : une fois ce cadeau déduit, seule une paire de 1 vaut mieux sirotée que gardée
   if (v === 1) return true;

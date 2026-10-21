@@ -166,6 +166,7 @@ function resultatReflexe(combi, des, rs, m, bilan) {
     else if (autresDerniers.length) lignes.push(`${autresDerniers[0]} crie en dernier : **−10 pts** pour ${autresDerniers[0]}.`);
   } else if (bilan.gagnant === m) lignes.push(`Vous gagnez les **${pts} pts** de la Velute !`);
   else if (bilan.gagnant !== null) lignes.push(`${P.joueurs[bilan.gagnant].nom} gagne les **${pts} pts** de la Velute.`);
+  else if (bilan.egalite.length) lignes.push(`Égalité parfaite entre ${enumerer(bilan.egalite.map(i => i === m ? "vous" : P.joueurs[i].nom))} : personne ne marque.`);
   else lignes.push("Personne n'a poussé le bon cri : les points de la Velute sont perdus.");
 
   if (regles.conseils && rM.res === "faux") lignes.push("\n" + ASTUCE_CRIS);
@@ -181,7 +182,8 @@ function gainReel(score, n) {
 
 const virgule = n => String(Math.round(n * 10) / 10).replace(".", ",").replace("-", "−");
 // Gain moyen d'un pari d'oiseau : 25 pts une fois sur 6
-const GAIN_OISEAU = 25 / 6;
+// (fonction et non constante : tuto.js est chargé avant jeu.js, qui définit PARI_OISEAU)
+const gainOiseau = () => PARI_OISEAU / 6;
 
 function conseilSirotage(j, v) {
   const pts = v * v;
@@ -191,16 +193,19 @@ function conseilSirotage(j, v) {
   // Siroter offre à chaque adversaire un pari d'oiseau gratuit : 25 pts une fois sur 6, soit ≈ 4,2 pts en moyenne.
   // On compare donc ce que vous gagnez par rapport à chacun d'eux, pas seulement vos propres points
   const adversaires = P.joueurs.length - 1;
-  const ecart = moyenne - GAIN_OISEAU;
+  const ecart = moyenne - gainOiseau();
+  // Un adversaire qu'un oiseau juste (+25) ferait gagner : siroter lui offre une chance sur 6 de remporter la partie
+  const menaces = offreVictoire(j).map(x => x.nom);
   let reco;
   if (regles.pile && j.score + pts === CIBLE) reco = `**gardez** : +${pts} vous amène pile à 343, vous gagnez !`;
   else if (regles.pile && j.score + 40 + 10 * v === CIBLE) reco = "**sirotez** : un Cul de Chouette vous ferait gagner la partie.";
+  else if (menaces.length) reco = `**gardez** : avec son oiseau, ${enumerer(menaces)} ${menaces.length > 1 ? "auraient" : "aurait"} une chance sur 6 de **gagner la partie** pendant votre sirotage.`;
   else if (ecart > garder) reco = "**sirotez**, même en comptant les paris offerts, c'est plus rentable avec une si petite Chouette.";
   else if (moyenne > garder) reco = "**gardez** : siroter vous rapporterait un peu plus, mais les paris offerts font gagner davantage vos adversaires.";
   else reco = "**gardez**, le sirotage ne vaut pas le risque avec une Chouette aussi grosse.";
   let t = `Garder : **${signe(garder)}** à coup sûr.\n` +
     `Siroter : 1 chance sur 6 de **${signe(reussite)}** (Cul de Chouette de ${v}), sinon **−${pts}**. En moyenne, siroter rapporte ${virgule(moyenne)} pts.\n` +
-    `Mais ${adversaires > 1 ? `chacun de vos ${adversaires} adversaires` : "votre adversaire"} parie alors gratuitement sur un oiseau, et y gagne en moyenne **+${virgule(GAIN_OISEAU)} pts**.\n` +
+    `Mais ${adversaires > 1 ? `chacun de vos ${adversaires} adversaires` : "votre adversaire"} parie alors gratuitement sur un oiseau, et y gagne en moyenne **+${virgule(gainOiseau())} pts**.\n` +
     `Conseil : ${reco}`;
   if (garder !== pts) t += "\nAttention : vous êtes près de 343, les points en trop vous feront reculer.";
   return t;
