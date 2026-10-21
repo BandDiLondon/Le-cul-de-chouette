@@ -12,12 +12,15 @@ const CHANCES = { chouette: 90, velute: 39, suite: 24, cul: 6, neant: 66 };
 const PLAFOND_DEFI = { chouette: 0.33, velute: 0.25, cul: 0.16 };
 const MISE_CIVET = 102;
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+// Portraits d'émotion d'un personnage : images/emotions/<clé>-rire.jpg, -pleurs.jpg, -rage.jpg
+const emotionsDe = cle => Object.fromEntries(["rire", "pleurs", "rage"].map(e => [e, `images/emotions/${cle}-${e}.jpg`]));
+
 // reflexe : temps de réaction (ms) ; rateJauge : part des lancers ratés ; bevue : part des mauvais cris ;
 // portrait : image carrée dans images/ (null = médaillon avec l'initiale)
 const ADVERSAIRES = {
-  karadoc:  { nom: "Karadoc",  reflexe: [1300, 2400], style: "hasard", rateJauge: 0.18, bevue: 0.08, portrait: "images/karadoc.jpg" },
-  arthur:   { nom: "Arthur",   reflexe: [850, 1600],  style: "calcul", rateJauge: 0.07, bevue: 0.03, portrait: "images/arthur.jpg" },
-  perceval: { nom: "Perceval", reflexe: [550, 1050],  style: "calcul", rateJauge: 0.02, bevue: 0,    portrait: "images/perceval.jpg" }
+  karadoc:  { nom: "Karadoc",  reflexe: [1300, 2400], style: "hasard", rateJauge: 0.18, bevue: 0.08, portrait: "images/karadoc.jpg", emotions: emotionsDe("karadoc") },
+  arthur:   { nom: "Arthur",   reflexe: [850, 1600],  style: "calcul", rateJauge: 0.07, bevue: 0.03, portrait: "images/arthur.jpg", emotions: emotionsDe("arthur") },
+  perceval: { nom: "Perceval", reflexe: [550, 1050],  style: "calcul", rateJauge: 0.02, bevue: 0,    portrait: "images/perceval.jpg", emotions: emotionsDe("perceval") }
 };
 const MAX_JOUEURS = 4;
 
@@ -272,9 +275,16 @@ function majScores() {
   P.joueurs.forEach((j, i) => {
     $("nom-" + i).textContent = j.nom + (P.enLigne && i === P.moi ? " (vous)" : "");
     const portrait = $("portrait-" + i);
-    const cle = j.nom + "|" + (j.portrait || "");
+    const image = imageDe(j);
+    const cle = j.nom + "|" + (image || "");
     if (portrait.dataset.pour !== cle) {
-      dessinerPortrait(portrait, j.nom, j.portrait);
+      dessinerPortrait(portrait, j.nom, image);
+      // Petit sursaut quand un personnage change de tête
+      if (portrait.dataset.pour) {
+        portrait.classList.remove("change");
+        void portrait.offsetWidth;
+        portrait.classList.add("change");
+      }
       portrait.dataset.pour = cle;
     }
     $("score-" + i).textContent = j.score;
@@ -300,6 +310,33 @@ function majScores() {
   });
 }
 
+// ---------- Émotions des personnages ----------
+// Le portrait affiché : l'émotion du moment si le personnage en a une, sinon son portrait habituel
+const imageDe = j => j.humeur && j.profil && j.profil.emotions ? j.profil.emotions[j.humeur] : j.portrait;
+
+// Les personnages de l'ordinateur changent de tête selon ce qui leur arrive, puis reprennent leur air habituel.
+// duree = Infinity : l'émotion reste (fin de partie)
+function humeur(j, e, duree = 2600) {
+  if (!j.profil || !j.profil.emotions) return;
+  clearTimeout(j.minuteurHumeur);
+  j.humeur = e;
+  majScores();
+  if (duree !== Infinity) {
+    j.minuteurHumeur = setTimeout(() => {
+      j.humeur = null;
+      if (P && P.joueurs.includes(j)) majScores();
+    }, duree);
+  }
+}
+
+// Réaction à un gain ou une perte de points
+function reagir(j, n, motif) {
+  if (!j.ia) return;
+  if (/Bévue|hors du tapis/.test(motif)) humeur(j, "rage");
+  else if (n >= 15) humeur(j, "rire");
+  else if (n <= -10 || motif === "Sirotage raté") humeur(j, "pleurs");
+}
+
 function flottant(i, n) {
   const s = document.createElement("div");
   s.className = "flottant " + (n > 0 ? "plus" : "moins");
@@ -322,6 +359,7 @@ function ajouter(j, n, motif) {
   flottant(P.joueurs.indexOf(j), n);
   Sons.jouer(n > 0 ? "gain" : "perte");
   majScores();
+  reagir(j, n, motif);
 }
 
 function gagnant() {
@@ -974,6 +1012,8 @@ async function resoudreCombinaison(j, des, combi) {
       for (const i of bilan.bevues) ajouter(P.joueurs[i], -10, "Bévue");
       for (const i of bilan.derniers) ajouter(P.joueurs[i], -10, "dernier sur la Suite");
       if (bilan.gagnant !== null) ajouter(P.joueurs[bilan.gagnant], points(des, combi), "Chouette-Velute");
+      // Se faire voler la Chouette-Velute de son propre lancer, ça énerve
+      if (bilan.gagnant !== null && P.joueurs[bilan.gagnant] !== j) humeur(j, "rage");
       break;
     }
   }
@@ -1125,9 +1165,12 @@ function finDePartie(g) {
   $("fin-texte").textContent = humainGagne
     ? `Vous atteignez ${g.score} points en ${P.tour} tours. Les autres : ${classement}.`
     : `${g.nom} atteint ${g.score} points en ${P.tour} tours. Classement des autres : ${classement}.`;
+  // Le vainqueur rit, les perdants pleurent, jusqu'à la partie suivante
+  P.joueurs.forEach(x => humeur(x, x === g ? "rire" : "pleurs", Infinity));
   // Le portrait du vainqueur
-  $("fin-portrait").hidden = !g.portrait;
-  if (g.portrait) dessinerPortrait($("fin-portrait"), g.nom, g.portrait);
+  const image = imageDe(g);
+  $("fin-portrait").hidden = !image;
+  if (image) dessinerPortrait($("fin-portrait"), g.nom, image);
   const bouton = $("btn-rejouer");
   bouton.disabled = false;
   bouton.textContent = P.enLigne ? "⚔️ Revanche" : "Rejouer";
@@ -1416,6 +1459,8 @@ function remplirTableLancers() {
 
 elDes.forEach(el => dessinerDe(el, 0));
 remplirTableLancers();
+// Les portraits d'émotion sont chargés d'avance : pas de clignotement quand un personnage change de tête
+Object.values(ADVERSAIRES).forEach(a => Object.values(a.emotions).forEach(src => { new Image().src = src; }));
 document.querySelectorAll("[data-adversaire]").forEach(el => {
   const a = ADVERSAIRES[el.dataset.adversaire];
   dessinerPortrait(el, a.nom, a.portrait);

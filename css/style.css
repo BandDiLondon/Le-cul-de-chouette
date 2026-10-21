@@ -99,6 +99,9 @@ button.petit { padding: 6px 10px; font-size: 13px; }
   font-family: 'Cinzel', Georgia, serif; font-weight: 800; font-size: 24px; color: var(--or-clair);
 }
 .portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Changement d'émotion d'un personnage */
+.portrait.change { animation: sursaut .4s ease-out; }
+@keyframes sursaut { 0% { transform: scale(1); } 40% { transform: scale(1.12) rotate(-3deg); } 100% { transform: scale(1); } }
 .portrait.grand { width: 120px; height: 120px; font-size: 52px; margin: 0 auto 12px; border-width: 3px; }
 .portrait[hidden] { display: none; }
 .choix-portrait, .choix-pcs { display: flex; flex-wrap: wrap; gap: 6px; }
