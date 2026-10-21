@@ -3,3 +3,6 @@ brouillon-gemini.txt
 
 # Fichiers sources (vidéo d'origine, etc.), gardés en local mais pas publiés
 sources/
+
+# Analyse du projet par une autre IA, gardée en privé
+docs/analyseAI.txt
