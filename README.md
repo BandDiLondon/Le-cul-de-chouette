@@ -27,6 +27,7 @@ On lance deux dés (les **chouettes**), puis un troisième (le **cul**). Le prem
 - **Conseils** : à chaque choix, les chances et le gain moyen de chaque option, avec une recommandation.
 - **Réflexes** : préparation, duel chronométré contre l'adversaire, puis bilan détaillé.
 - **Trois adversaires** : Karadoc (lent), Arthur (moyen), Perceval (rapide et calculateur).
+- **Jeu en ligne à deux** : créez une partie, envoyez le code ou le lien à un ami, chacun joue sur son appareil. Connexion directe entre navigateurs (WebRTC via PeerJS) ; les dés sont tirés d'une graine commune et chaque appareil chronomètre son propre joueur pendant les réflexes.
 - **Sons** générés dans le navigateur, sans aucun fichier audio.
 - **Voix** : les cris sont prononcés par la synthèse vocale (les voix « Natural » de Microsoft Edge sont les meilleures).
 - **Vos propres cris** : enregistrez-les au micro, pour vous et pour l'adversaire.
@@ -39,6 +40,7 @@ css/style.css     le style
 js/sons.js        sons synthétisés et voix
 js/cris.js        enregistrement des cris au micro
 js/tuto.js        tutoriel et conseils
+js/reseau.js      jeu en ligne (salon, connexion, messages)
 js/jeu.js         règles et déroulement de la partie
 ```
 

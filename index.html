@@ -85,6 +85,7 @@
     <div class="pied">
       <button class="second" id="btn-annuler-partie">Annuler</button>
       <button id="btn-tuto">📜 Tutoriel</button>
+      <button id="btn-en-ligne">🌐 En ligne</button>
       <button class="vert" id="btn-lancer-partie">Commencer</button>
     </div>
   </div>
@@ -131,6 +132,47 @@
     <h2 id="fin-titre"></h2>
     <p id="fin-texte"></p>
     <div class="pied centre"><button class="vert" id="btn-rejouer">Rejouer</button></div>
+  </div>
+</div>
+
+<!-- Jouer en ligne -->
+<div class="voile" id="fen-ligne">
+  <div class="fenetre">
+    <h2>🌐 Jouer en ligne</h2>
+    <div id="ligne-accueil">
+      <p>Affrontez un ami, chacun sur son appareil.</p>
+      <div class="champ">
+        <label for="ligne-nom">Votre nom</label>
+        <input type="text" id="ligne-nom" maxlength="20" placeholder="Votre nom de chevalier">
+      </div>
+      <div class="ligne-choix">
+        <div class="carte-choix">
+          <h3>Créer une partie</h3>
+          <p>Vous recevez un code à envoyer à votre ami.</p>
+          <label class="case"><input type="checkbox" id="ligne-pile" checked> <span>343 pile</span></label>
+          <button class="vert" id="btn-creer">Créer</button>
+        </div>
+        <div class="carte-choix">
+          <h3>Rejoindre</h3>
+          <p>Entrez le code reçu.</p>
+          <input type="text" id="ligne-code" class="code" maxlength="5" placeholder="ABCDE" autocomplete="off" aria-label="Code de la partie">
+          <button id="btn-rejoindre">Rejoindre</button>
+        </div>
+      </div>
+    </div>
+    <div id="ligne-attente" hidden>
+      <p>Envoyez ce code à votre ami :</p>
+      <div class="code-partie" id="code-partie"></div>
+      <p>Ou envoyez-lui directement ce lien :</p>
+      <div class="ligne-voix">
+        <input type="text" id="lien-partie" class="lien" readonly aria-label="Lien d'invitation">
+        <button class="second petit" id="btn-copier-lien">📋 Copier le lien</button>
+      </div>
+      <p class="attente-ligne" id="ligne-statut">En attente de votre adversaire…</p>
+    </div>
+    <p class="erreur" id="ligne-erreur" hidden></p>
+    <p class="note">Les deux navigateurs se connectent directement (WebRTC, via le service gratuit PeerJS). Certains réseaux d'entreprise ou d'école peuvent bloquer la connexion.</p>
+    <div class="pied"><button class="second" id="btn-fermer-ligne">Annuler</button></div>
   </div>
 </div>
 
@@ -209,6 +251,7 @@
 <script src="js/sons.js"></script>
 <script src="js/cris.js"></script>
 <script src="js/tuto.js"></script>
+<script src="js/reseau.js"></script>
 <script src="js/jeu.js"></script>
 </body>
 </html>

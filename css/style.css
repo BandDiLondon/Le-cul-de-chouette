@@ -150,6 +150,32 @@ button.petit { padding: 6px 10px; font-size: 13px; }
 input.plein { width: 100%; accent-color: var(--rouge); }
 button.plein { width: 100%; }
 
+/* Fenêtre « Jouer en ligne » */
+.ligne-choix { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.carte-choix {
+  display: flex; flex-direction: column; gap: 8px;
+  background: #fffaf0; border: 2px solid #c9b07a; border-radius: 10px; padding: 12px;
+}
+.carte-choix h3 { margin: 0; }
+.carte-choix p { margin: 0; font-size: 15px; }
+.carte-choix button { margin-top: auto; }
+input.code {
+  font-family: 'Cinzel', Georgia, serif; font-size: 22px; font-weight: 800; letter-spacing: 6px;
+  text-align: center; text-transform: uppercase; padding: 6px; width: 100%;
+  border: 2px solid #c9b07a; border-radius: 6px; background: #fff;
+}
+.code-partie {
+  font-family: 'Cinzel', Georgia, serif; font-size: 44px; font-weight: 800; letter-spacing: 10px;
+  text-align: center; color: var(--rouge); background: #fffaf0; border: 2px dashed var(--or);
+  border-radius: 10px; padding: 6px 0; margin: 4px 0 10px; user-select: all;
+}
+input.lien {
+  flex: 1; min-width: 0; font: inherit; font-size: 14px; padding: 6px 8px;
+  border: 2px solid #c9b07a; border-radius: 6px; background: #fffaf0; color: var(--encre);
+}
+.attente-ligne { text-align: center; font-style: italic; color: #7a5a1c; animation: clignote .9s infinite alternate; }
+#ligne-accueil[hidden], #ligne-attente[hidden] { display: none; }
+
 /* Fenêtre « Vos cris » */
 .onglets { display: flex; gap: 6px; margin: 12px 0 10px; border-bottom: 2px solid #c9b07a; }
 .onglet {
@@ -285,6 +311,7 @@ button.plein { width: 100%; }
   .adversaires { grid-template-columns: 1fr; }
   .reflexe .cris { grid-template-columns: 1fr; }
   header { flex-wrap: wrap; }
+  .ligne-choix { grid-template-columns: 1fr; }
   .cri { grid-template-columns: 1fr auto auto; }
   .cri-texte { grid-column: 1 / -1; }
   .joueur .score { font-size: 28px; }

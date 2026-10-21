@@ -34,7 +34,25 @@ function garde(promesse) {
 const pause = ms => garde(new Promise(r => setTimeout(r, ms)));
 
 // ---------- Outils ----------
+// jet() pour l'animation et l'adversaire ordinateur ; jetPartie() pour les dés qui comptent,
+// tirés d'une graine commune en ligne pour que les deux appareils voient les mêmes dés
 const jet = () => Math.floor(Math.random() * 6) + 1;
+const jetPartie = () => Math.floor(P.alea() * 6) + 1;
+
+// Générateur pseudo-aléatoire reproductible (mulberry32)
+function generateur(graine) {
+  let a = graine >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Un joueur « local » joue sur cet appareil ; sinon c'est l'ordinateur ou un joueur en ligne
+const estLocal = j => !j.ia && !j.distant;
 const hasard = (min, max) => min + Math.random() * (max - min);
 const auHasard = liste => liste[Math.floor(Math.random() * liste.length)];
 const pct = n => Math.round(n / 216 * 100) + " %";
@@ -99,6 +117,8 @@ function plafondDefi(a, b, combi) {
 
 // ---------- État de la partie ----------
 let P = null;
+// Partie en ligne en cours : { hote, nomMoi, nomAutre, pile, premier, revancheMoi, revancheAutre }
+let enLigne = null;
 let reglages = chargerReglages();
 // Règles de la partie en cours : celles des réglages, ou celles imposées par le tutoriel
 let regles = { ...reglages };
@@ -112,18 +132,39 @@ function sauverReglages() {
   try { localStorage.setItem("cdc-reglages", JSON.stringify(reglages)); } catch {}
 }
 
-function nouvellePartie(tuto = false) {
+const nouveauJoueur = (nom, plus = {}) => ({ nom, score: 0, grelottine: false, civet: true, ia: false, distant: false, ...plus });
+
+// manche : { graine, premier } pour une partie en ligne, null sinon
+function nouvellePartie(tuto = false, manche = null) {
   jeton++;
   fermerReflexe();
   cacherBulle();
-  regles = tuto ? { ...reglages, adv: "arthur", pile: true, aide: true, conseils: true } : { ...reglages };
-  const profil = ADVERSAIRES[regles.adv];
+  $("fen-fin").classList.remove("ouvert");
+  if (!manche && enLigne) { Reseau.fermer(); enLigne = null; }
+
+  let joueurs, moi = 0, intro;
+  if (manche) {
+    regles = { ...reglages, pile: enLigne.pile };
+    // Les deux appareils rangent les joueurs dans le même ordre : l'hôte d'abord
+    const noms = enLigne.hote ? [enLigne.nomMoi, enLigne.nomAutre] : [enLigne.nomAutre, enLigne.nomMoi];
+    if (noms[0] === noms[1]) noms[1] += " 2";
+    moi = enLigne.hote ? 0 : 1;
+    joueurs = noms.map((nom, i) => nouveauJoueur(nom, { distant: i !== moi }));
+    intro = `Partie en ligne contre ${noms[1 - moi]}.`;
+  } else {
+    regles = tuto ? { ...reglages, adv: "arthur", pile: true, aide: true, conseils: true } : { ...reglages };
+    const profil = ADVERSAIRES[regles.adv];
+    joueurs = [nouveauJoueur(regles.nom.trim() || "Vous"), nouveauJoueur(profil.nom, { ia: true, profil })];
+    intro = tuto ? `Tutoriel contre ${profil.nom}.` : `Partie contre ${profil.nom}.`;
+  }
+  const premier = manche ? manche.premier : 0;
   P = {
-    joueurs: [
-      { nom: regles.nom.trim() || "Vous", score: 0, grelottine: false, civet: true, ia: false },
-      { nom: profil.nom, score: 0, grelottine: false, civet: true, ia: true, profil }
-    ],
-    courant: 0,
+    joueurs,
+    moi,
+    enLigne: !!manche,
+    alea: manche ? generateur(manche.graine) : Math.random,
+    courant: premier,
+    premier,
     tour: 1,
     tuto,
     script: tuto ? SCENARIO_TUTO.map(d => [...d]) : [],
@@ -133,14 +174,14 @@ function nouvellePartie(tuto = false) {
   journal.innerHTML = "";
   elDes.forEach(el => { dessinerDe(el, 0); el.classList.remove("surligne"); });
   $("combinaison").innerHTML = "&nbsp;";
-  log(tuto ? `Tutoriel contre ${profil.nom}.` : `Partie contre ${profil.nom}. ${regles.pile ? "Il faut tomber sur 343 pile." : "Le premier à 343 gagne."}`, "info");
+  log(`${intro} ${regles.pile ? "Il faut tomber sur 343 pile." : "Le premier à 343 gagne."}`, "info");
   majScores();
   boucle().catch(e => { if (e !== ABANDON) throw e; });
 }
 
 function majScores() {
   P.joueurs.forEach((j, i) => {
-    $("nom-" + i).textContent = j.nom;
+    $("nom-" + i).textContent = j.nom + (P.enLigne && i === P.moi ? " (vous)" : "");
     $("score-" + i).textContent = j.score;
     $("barre-" + i).style.width = Math.max(0, Math.min(100, j.score / CIBLE * 100)) + "%";
     $("carte-" + i).classList.toggle("actif", i === P.courant);
@@ -280,7 +321,7 @@ function animer(indices, valeurs, duree) {
 }
 
 async function lancerDes() {
-  const des = P.script.length ? P.script.shift() : [jet(), jet(), jet()];
+  const des = P.script.length ? P.script.shift() : [jetPartie(), jetPartie(), jetPartie()];
   annoncer(null);
   await animer([0, 1], des, 600);
   await pause(150);
@@ -316,14 +357,43 @@ function boutonReflexe(texte, classe = "") {
   }));
 }
 
+// Qui perd ou gagne des points, à partir du cri de chaque joueur ({ res: "juste" | "faux" | "rien", ms })
+function bilanReflexe(combi, rs) {
+  const indices = rs.map((_, i) => i);
+  const temps = i => rs[i].res === "juste" ? rs[i].ms : Infinity;
+  const bevues = indices.filter(i => rs[i].res === "faux");
+  const autres = indices.filter(i => rs[i].res !== "faux");
+  let derniers = [];
+  let gagnant = null;
+  if (combi === "suite") {
+    // Le dernier à crier perd 10 pts ; celui qui a fait une Bévue est déjà puni
+    if (autres.length >= 2) {
+      const pire = Math.max(...autres.map(temps));
+      derniers = autres.filter(i => temps(i) === pire);
+    }
+  } else {
+    const justes = indices.filter(i => rs[i].res === "juste");
+    if (justes.length) gagnant = justes.reduce((a, b) => temps(b) < temps(a) ? b : a);
+  }
+  return { bevues, derniers, gagnant };
+}
+
 // Trois phases dans la même fenêtre : préparation (première fois, avec conseils), duel, résultat.
-// Renvoie { res: "humain" (bon cri en premier) | "ia" (l'adversaire a crié avant) | "bevue", ms, delaiIA, cri }
-async function reflexe(combi, des, lanceur, ia) {
+// Chaque appareil chronomètre son propre joueur ; en ligne, les deux temps sont échangés puis comparés.
+// Renvoie { rs, bilan } : rs[i] est le cri du joueur i
+async function reflexe(combi, des, lanceur) {
   const attendu = combi === "suite" ? GRELOTTE : PAS_MOU;
-  // Les deux premiers réflexes du tutoriel laissent plus de temps pour apprendre
-  const lent = P.tuto && P.tour <= 2 ? 1.8 : 1;
-  const [min, max] = ia.profil.reflexe.map(x => x * lent);
-  const delaiIA = hasard(min, max);
+  const moi = P.moi;
+  const autre = P.joueurs[1 - moi];
+  let min = null, max = null, delaiIA = null;
+  if (autre.ia) {
+    // Les deux premiers réflexes du tutoriel laissent plus de temps pour apprendre
+    const lent = P.tuto && P.tour <= 2 ? 1.8 : 1;
+    [min, max] = autre.profil.reflexe.map(x => x * lent);
+    delaiIA = hasard(min, max);
+  }
+  // En ligne, les cris apparaissent après le même délai aléatoire sur les deux appareils : impossible de cliquer d'avance
+  const attenteCris = P.enLigne ? 500 + P.alea() * 1200 : 0;
   const premiere = regles.conseils && !P.vus.has("reflexe-" + combi);
 
   $("reflexe-titre").textContent = premiere ? "Préparez-vous !" : "RÉFLEXE !";
@@ -344,7 +414,7 @@ async function reflexe(combi, des, lanceur, ia) {
 
   if (premiere) {
     P.vus.add("reflexe-" + combi);
-    texteReflexe("reflexe-explication", explicationReflexe(combi, des, lanceur, ia, min, max));
+    texteReflexe("reflexe-explication", explicationReflexe(combi, des, lanceur, autre, min, max));
     await boutonReflexe("Je suis prêt !", "vert");
     texteReflexe("reflexe-explication", "");
     const decompte = $("reflexe-decompte");
@@ -355,26 +425,50 @@ async function reflexe(combi, des, lanceur, ia) {
     $("reflexe-titre").textContent = "RÉFLEXE !";
   }
   texteReflexe("reflexe-explication", regles.conseils ? rappelReflexe(combi, des) : "");
+  if (attenteCris) {
+    $("reflexe-titre").textContent = "Attention…";
+    await pause(attenteCris);
+    $("reflexe-titre").textContent = "RÉFLEXE !";
+    Sons.jouer("go");
+  }
 
-  const r = await duel(attendu, delaiIA);
+  const rMoi = await duel(attendu, delaiIA);
+  const rs = [];
+  rs[moi] = rMoi;
+  if (autre.ia) {
+    rs[1 - moi] = { res: "juste", ms: delaiIA, cri: attendu };
+  } else {
+    Reseau.envoyer("cri", rMoi);
+    $("reflexe-titre").textContent = "…";
+    texteReflexe("reflexe-explication", `En attente du cri de ${autre.nom}…`);
+    rs[1 - moi] = await garde(Reseau.recevoir("cri"));
+  }
+  const bilan = bilanReflexe(combi, rs);
+
+  const gagne = combi === "suite" ? rMoi.res === "juste" && !bilan.derniers.includes(moi) : bilan.gagnant === moi;
   const geste = cri => cri === GRELOTTE ? "poing" : "genoux";
-  if (r.res === "humain") { Sons.jouer(geste(attendu)); Sons.jouer("bon"); Sons.dire(attendu); }
-  else if (r.res === "bevue") { Sons.jouer(geste(r.cri)); Sons.jouer("bevue"); Sons.dire(r.cri); }
-  else { Sons.jouer(geste(attendu)); Sons.jouer("lent"); Sons.dire(attendu, true); }
+  if (rMoi.cri) Sons.jouer(geste(rMoi.cri));
+  if (gagne) { Sons.jouer("bon"); Sons.dire(attendu); }
+  else if (rMoi.res === "faux") { Sons.jouer("bevue"); Sons.dire(rMoi.cri); }
+  else {
+    Sons.jouer("lent");
+    if (rs[1 - moi].res === "juste") { Sons.jouer(geste(attendu)); Sons.dire(attendu, true); }
+  }
 
-  $("reflexe-titre").textContent = { humain: "Bien joué !", ia: "Trop lent !", bevue: "Bévue !" }[r.res];
+  $("reflexe-titre").textContent = gagne ? "Bien joué !" : rMoi.res === "faux" ? "Bévue !" : "Trop lent !";
   texteReflexe("reflexe-explication", "");
   for (const b of $("reflexe-cris").children) {
     b.disabled = true;
     if (b.dataset.cri === attendu) b.classList.add("juste");
-    else if (b.dataset.cri === r.cri) b.classList.add("faux");
+    else if (b.dataset.cri === rMoi.cri) b.classList.add("faux");
   }
-  texteReflexe("reflexe-resultat", resultatReflexe(combi, des, r, ia));
+  texteReflexe("reflexe-resultat", resultatReflexe(combi, des, rs, moi, bilan));
   await boutonReflexe("Continuer");
   fermerReflexe();
-  return r;
+  return { rs, bilan };
 }
 
+// Le duel se termine au clic, quand l'ordinateur crie, ou après 5 s en ligne
 function duel(attendu, delaiIA) {
   return garde(new Promise(resoudre => {
     const cris = $("reflexe-cris");
@@ -384,40 +478,56 @@ function duel(attendu, delaiIA) {
       if (fini) return;
       fini = true;
       clearTimeout(minuteurReflexe);
-      resoudre({ ...r, delaiIA });
+      resoudre(r);
     };
     for (const cri of Math.random() < 0.5 ? [PAS_MOU, GRELOTTE] : [GRELOTTE, PAS_MOU]) {
       const b = document.createElement("button");
       b.textContent = "« " + cri + " »";
       b.dataset.cri = cri;
-      b.onclick = () => terminer({ res: cri === attendu ? "humain" : "bevue", ms: performance.now() - debut, cri });
+      b.onclick = () => terminer({ res: cri === attendu ? "juste" : "faux", ms: performance.now() - debut, cri });
       cris.appendChild(b);
     }
-    minuteurReflexe = setTimeout(() => terminer({ res: "ia", ms: delaiIA, cri: null }), delaiIA);
+    minuteurReflexe = setTimeout(() => terminer({ res: "rien", ms: null, cri: null }), delaiIA ?? 5000);
   }));
 }
 
 // ---------- Déroulement d'un tour ----------
+// Une décision prise par un joueur : à l'écran s'il joue ici (puis transmise à l'autre appareil),
+// calculée s'il s'agit de l'ordinateur, ou reçue par le réseau s'il joue en ligne
+async function decider(j, type, choixLocal, choixIA, texteAttente) {
+  if (j.ia) return choixIA();
+  if (j.distant) {
+    attente(texteAttente);
+    return garde(Reseau.recevoir(type));
+  }
+  const v = await choixLocal();
+  if (P.enLigne) Reseau.envoyer(type, v ?? null);
+  return v;
+}
+
 async function boucle() {
   if (P.tuto) await expliquer("intro");
   while (true) {
     const j = P.joueurs[P.courant];
     const adv = P.joueurs[1 - P.courant];
     majScores();
-    if (P.courant === 0) log(`Tour ${P.tour}`, "tour");
-    $("banniere").textContent = j.ia ? `Au tour de ${j.nom}` : `À vous de jouer, ${j.nom}`;
+    if (P.courant === P.premier) log(`Tour ${P.tour}`, "tour");
+    $("banniere").textContent = estLocal(j) ? `À vous de jouer, ${j.nom}` : `Au tour de ${j.nom}`;
 
     // 1. L'adversaire peut lancer un défi avec sa Grelottine
     let defi = null;
-    if (adv.grelottine && !adv.ia) await expliquer("defi");
-    if (adv.grelottine) defi = adv.ia ? defiIA(adv, j) : await defiHumain(adv, j);
+    if (adv.grelottine && estLocal(adv)) await expliquer("defi");
+    if (adv.grelottine) {
+      defi = await decider(adv, "defi", () => defiHumain(adv, j), () => defiIA(adv, j),
+        `${adv.nom} réfléchit à sa Grelottine…`);
+    }
     if (defi) {
       adv.grelottine = false;
       majScores();
       log(`🔔 « Grelottine ! » ${adv.nom} défie ${j.nom} sur une ${NOMS[defi.combi]} (mise : ${defi.mise}).`, "alerte");
       Sons.jouer("grelot");
-      Sons.dire("Grelottine !", adv.ia);
-      if (!j.ia) await expliquer("defi-subi");
+      Sons.dire("Grelottine !", !estLocal(adv));
+      if (estLocal(j)) await expliquer("defi-subi");
     }
 
     // 2. Civet éventuel, puis lancer
@@ -427,20 +537,22 @@ async function boucle() {
       await pause(defi ? 1200 : 800);
       civet = civetIA(j);
     } else {
-      if (j.civet && P.tour >= 4) await expliquer(P.tuto ? "civet-tuto" : "civet");
-      const opts = [{ label: "🎲 Lancer les dés", val: "lancer", classe: "" }];
-      if (j.civet) opts.push({ label: "🐇 Annoncer un Civet", val: "civet", classe: "second" });
-      conseilAvantLancer(j);
-      if (await choisir("", opts) === "civet") civet = await civetHumain(j);
+      civet = await decider(j, "lancer", async () => {
+        if (j.civet && P.tour >= 4) await expliquer(P.tuto ? "civet-tuto" : "civet");
+        const opts = [{ label: "🎲 Lancer les dés", val: "lancer", classe: "" }];
+        if (j.civet) opts.push({ label: "🐇 Annoncer un Civet", val: "civet", classe: "second" });
+        conseilAvantLancer(j);
+        return await choisir("", opts) === "civet" ? civetHumain(j) : null;
+      }, null, `${j.nom} s'apprête à lancer les dés…`);
     }
     if (civet) {
       j.civet = false;
       majScores();
       log(`🐇 « Civet ! » ${j.nom} mise ${civet.mise} pts sur : ${NOMS[civet.combi]}.`, "alerte");
       Sons.jouer("civet");
-      Sons.dire("Civet !", j.ia);
+      Sons.dire("Civet !", !estLocal(j));
     }
-    if (j.ia) attente(`${j.nom} lance les dés…`);
+    if (!estLocal(j)) attente(`${j.nom} lance les dés…`);
 
     const des = await lancerDes();
     const combi = analyser(des);
@@ -477,15 +589,13 @@ async function boucle() {
     if (P.tuto && !P.script.length) await expliquer("fin");
 
     P.courant = 1 - P.courant;
-    if (P.courant === 0) P.tour++;
+    if (P.courant === P.premier) P.tour++;
     attente("…");
     await pause(900);
   }
 }
 
 async function resoudreCombinaison(j, adv, des, combi) {
-  const humain = j.ia ? adv : j;
-  const ia = j.ia ? j : adv;
   switch (combi) {
     case "neant":
       if (j.grelottine) log(`${j.nom} a déjà une Grelottine.`, "info");
@@ -501,35 +611,14 @@ async function resoudreCombinaison(j, adv, des, combi) {
       await sirotage(j, adv, des);
       break;
 
-    case "suite": {
-      const r = await reflexe(combi, des, j, ia);
-      if (r.res === "humain") {
-        log(`« ${GRELOTTE} » en ${(r.ms / 1000).toFixed(2)} s. ${ia.nom} est le dernier !`, "info");
-        ajouter(ia, -10, "dernier sur la Suite");
-      } else if (r.res === "ia") {
-        log(`${ia.nom} frappe la table avant vous !`, "info");
-        ajouter(humain, -10, "dernier sur la Suite");
-      } else {
-        log(`Mauvais cri ! C'était « ${GRELOTTE} ».`, "alerte");
-        ajouter(humain, -10, "Bévue");
-      }
-      break;
-    }
-
+    case "suite":
     case "chouette-velute": {
-      const pts = points(des, combi);
-      const r = await reflexe(combi, des, j, ia);
-      if (r.res === "humain") {
-        log(`« ${PAS_MOU} » en ${(r.ms / 1000).toFixed(2)} s !`, "info");
-        ajouter(humain, pts, "Chouette-Velute");
-      } else if (r.res === "ia") {
-        log(`${ia.nom} se tape les genoux le premier !`, "info");
-        ajouter(ia, pts, "Chouette-Velute");
-      } else {
-        log(`Mauvais cri ! C'était « ${PAS_MOU} ».`, "alerte");
-        ajouter(humain, -10, "Bévue");
-        ajouter(ia, pts, "Chouette-Velute");
-      }
+      const { rs, bilan } = await reflexe(combi, des, j);
+      const detail = rs.map((r, i) => `${P.joueurs[i].nom} ${r.res === "juste" ? secondes(r.ms) : r.res === "faux" ? "mauvais cri" : "pas de cri"}`);
+      log(`Cris : ${detail.join(" · ")}`, "info");
+      for (const i of bilan.bevues) ajouter(P.joueurs[i], -10, "Bévue");
+      for (const i of bilan.derniers) ajouter(P.joueurs[i], -10, "dernier sur la Suite");
+      if (bilan.gagnant !== null) ajouter(P.joueurs[bilan.gagnant], points(des, combi), "Chouette-Velute");
       break;
     }
   }
@@ -540,17 +629,14 @@ async function sirotage(j, adv, des) {
   const pts = v * v;
   const gainCul = 40 + 10 * v;
 
-  let siroter;
-  if (j.ia) {
-    siroter = siroterIA(j, adv, v);
-    await pause(600);
-  } else {
+  const siroter = await decider(j, "siroter", () => {
     conseiller(conseilSirotage(j, v));
-    siroter = await choisir(`Chouette de ${v} ! La garder ou la siroter ?`, [
+    return choisir(`Chouette de ${v} ! La garder ou la siroter ?`, [
       { label: `Garder (+${pts})`, val: false, classe: "second" },
       { label: `Siroter (+${gainCul} ou −${pts})`, val: true, classe: "" }
     ]);
-  }
+  }, () => siroterIA(j, adv, v), `${j.nom} hésite à siroter sa Chouette de ${v}…`);
+  if (j.ia) await pause(600);
   if (!siroter) {
     ajouter(j, pts, `Chouette de ${v}`);
     return;
@@ -565,21 +651,23 @@ async function sirotage(j, adv, des) {
     Sons.jouer("oiseau");
     Sons.dire(OISEAUX[pari] + " !", true);
   } else {
-    await expliquer("oiseaux");
-    conseiller(conseilOiseaux());
-    pari = await choisir(`${j.nom} sirote ! Pariez sur le dé relancé (+25 si juste) :`,
-      [1, 2, 3, 4, 5, 6].map(n => ({ label: `${n} · ${OISEAUX[n]}`, val: n, classe: "second" }))
-        .concat([{ label: "Pas de pari", val: 0, classe: "second" }]), true);
+    pari = await decider(adv, "oiseau", async () => {
+      await expliquer("oiseaux");
+      conseiller(conseilOiseaux());
+      return choisir(`${j.nom} sirote ! Pariez sur le dé relancé (+25 si juste) :`,
+        [1, 2, 3, 4, 5, 6].map(n => ({ label: `${n} · ${OISEAUX[n]}`, val: n, classe: "second" }))
+          .concat([{ label: "Pas de pari", val: 0, classe: "second" }]), true);
+    }, null, `${adv.nom} choisit un oiseau…`);
     if (pari) {
-      log(`Vous criez « ${OISEAUX[pari]} ! »`, "info");
+      log(estLocal(adv) ? `Vous criez « ${OISEAUX[pari]} ! »` : `${adv.nom} crie « ${OISEAUX[pari]} ! »`, "info");
       Sons.jouer("oiseau");
-      Sons.dire(OISEAUX[pari] + " !");
+      Sons.dire(OISEAUX[pari] + " !", !estLocal(adv));
     }
   }
-  if (j.ia) attente(`${j.nom} relance le dé…`);
+  if (!estLocal(j)) attente(`${j.nom} relance le dé…`);
 
   const seul = des.findIndex(d => d !== v);
-  const nouveau = jet();
+  const nouveau = jetPartie();
   des[seul] = nouveau;
   await animer([seul], des, 700);
 
@@ -608,7 +696,7 @@ async function defiHumain(grelottin, cible) {
   ]);
   if (!ok) return null;
   conseiller(conseilDefi(grelottin, cible));
-  const combi = await choisir(`Sur quelle combinaison défier ${cible.nom} ? (vous gagnez s'il la rate)`,
+  const combi = await choisir(`Sur quelle combinaison défier ${cible.nom} ? (vous gagnez si elle est ratée)`,
     ["chouette", "velute", "cul"].map(c => ({
       label: `${NOMS[c]} — réussite ${pct(CHANCES[c])}, mise max ${plafondDefi(grelottin, cible, c)}`,
       val: c, classe: "second"
@@ -673,16 +761,94 @@ function civetIA(j) {
 function finDePartie(g) {
   attente("Partie terminée.");
   $("banniere").textContent = "Partie terminée";
-  const humainGagne = !g.ia;
+  const humainGagne = estLocal(g);
   log(`🏆 ${g.nom} atteint ${g.score} points et remporte la partie !`, "alerte");
   $("fin-titre").textContent = humainGagne ? "🏆 Victoire !" : `👑 ${g.nom} l'emporte`;
   const perdant = P.joueurs.find(x => x !== g);
   $("fin-texte").textContent = humainGagne
     ? `Vous atteignez ${g.score} points en ${P.tour} tours. ${perdant.nom} finit à ${perdant.score}.`
     : `${g.nom} atteint ${g.score} points en ${P.tour} tours. Vous finissez à ${perdant.score}.`;
+  const bouton = $("btn-rejouer");
+  bouton.disabled = false;
+  bouton.textContent = P.enLigne ? "⚔️ Revanche" : "Rejouer";
   $("fen-fin").classList.add("ouvert");
   Sons.jouer(humainGagne ? "victoire" : "defaite");
-  setTimeout(() => Sons.dire("Victoire !", g.ia), 1300);
+  setTimeout(() => Sons.dire("Victoire !", !estLocal(g)), 1300);
+}
+
+// ---------- Partie en ligne ----------
+// Appelé par Reseau quand les deux joueurs sont connectés
+function demarrerEnLigne(infos) {
+  $("fen-partie").classList.remove("ouvert");
+  enLigne = { ...infos, premier: 0, revancheMoi: false, revancheAutre: false };
+  if (enLigne.hote) lancerManche(0);
+  else {
+    jeton++;
+    attente(`Connecté à ${infos.nomAutre}. La partie va commencer…`);
+  }
+}
+
+// L'hôte tire la graine des dés et l'envoie : les deux appareils jouent alors exactement la même partie
+function lancerManche(premier) {
+  enLigne.premier = premier;
+  enLigne.revancheMoi = enLigne.revancheAutre = false;
+  const graine = Math.floor(Math.random() * 2 ** 32);
+  Reseau.viderFile();
+  Reseau.envoyer("debut", { graine, premier, pile: enLigne.pile });
+  nouvellePartie(false, { graine, premier });
+}
+
+Reseau.sur("debut", d => {
+  if (!enLigne) return;
+  Reseau.viderFile();
+  enLigne.pile = !!d.pile;
+  enLigne.premier = d.premier;
+  enLigne.revancheMoi = enLigne.revancheAutre = false;
+  nouvellePartie(false, { graine: d.graine, premier: d.premier });
+});
+
+Reseau.sur("revanche", () => {
+  if (!enLigne) return;
+  enLigne.revancheAutre = true;
+  log(`⚔️ ${enLigne.nomAutre} veut une revanche !`, "alerte");
+  if ($("fen-fin").classList.contains("ouvert") && !enLigne.revancheMoi) {
+    $("fin-texte").textContent += ` ${enLigne.nomAutre} veut une revanche !`;
+  }
+  verifierRevanche();
+});
+
+function demanderRevanche() {
+  enLigne.revancheMoi = true;
+  Reseau.envoyer("revanche");
+  const bouton = $("btn-rejouer");
+  bouton.disabled = true;
+  bouton.textContent = `En attente de ${enLigne.nomAutre}…`;
+  verifierRevanche();
+}
+
+// Chacun commence à tour de rôle
+function verifierRevanche() {
+  if (enLigne.hote && enLigne.revancheMoi && enLigne.revancheAutre) lancerManche(1 - enLigne.premier);
+}
+
+// Appelé par Reseau quand l'autre joueur est parti ou que la connexion a sauté
+function connexionPerdue(nom) {
+  if (!enLigne) return;
+  enLigne = null;
+  jeton++;
+  fermerReflexe();
+  cacherBulle();
+  attente("Connexion perdue.");
+  if (P) {
+    P.enLigne = false;
+    log(`🔌 La connexion avec ${nom} a été coupée.`, "alerte");
+  }
+  $("banniere").textContent = "Connexion perdue";
+  $("fin-titre").textContent = "🔌 Connexion perdue";
+  $("fin-texte").textContent = `La connexion avec ${nom} a été coupée : la partie s'arrête là.`;
+  $("btn-rejouer").disabled = false;
+  $("btn-rejouer").textContent = "Retour au menu";
+  $("fen-fin").classList.add("ouvert");
 }
 
 // ---------- Fenêtres ----------
@@ -715,7 +881,16 @@ $("btn-annuler-partie").onclick = () => $("fen-partie").classList.remove("ouvert
 $("btn-nouvelle").onclick = ouvrirNouvellePartie;
 $("btn-regles").onclick = () => $("fen-regles").classList.add("ouvert");
 $("btn-fermer-regles").onclick = () => $("fen-regles").classList.remove("ouvert");
-$("btn-rejouer").onclick = () => { $("fen-fin").classList.remove("ouvert"); ouvrirNouvellePartie(); };
+$("btn-rejouer").onclick = () => {
+  if (enLigne && Reseau.connecte()) return demanderRevanche();
+  $("fen-fin").classList.remove("ouvert");
+  ouvrirNouvellePartie();
+};
+$("btn-en-ligne").onclick = () => {
+  if (enLigne) { Reseau.fermer(); enLigne = null; jeton++; }
+  $("fen-partie").classList.remove("ouvert");
+  Reseau.ouvrir();
+};
 $("fen-regles").onclick = e => { if (e.target.id === "fen-regles") $("fen-regles").classList.remove("ouvert"); };
 
 // ---------- Fenêtre « Sons et voix » ----------
@@ -787,3 +962,5 @@ document.addEventListener("click", e => { if (e.target.closest("button")) Sons.j
 
 elDes.forEach(el => dessinerDe(el, 0));
 ouvrirNouvellePartie();
+// Lien d'invitation (?partie=CODE) : on ouvre directement la fenêtre pour rejoindre
+if (Reseau.codeInvitation()) { $("fen-partie").classList.remove("ouvert"); Reseau.ouvrir(Reseau.codeInvitation()); }
