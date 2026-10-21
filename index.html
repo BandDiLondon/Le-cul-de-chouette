@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le Cul de Chouette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="table-jeu">
+  <header>
+    <div>
+      <h1>Le Cul de Chouette</h1>
+      <div class="sous-titre">Le premier à 343 points l'emporte.</div>
+    </div>
+    <div class="menu">
+      <button class="second petit" id="btn-son" title="Sons et voix">🔊</button>
+      <button class="second petit" id="btn-regles">Règles</button>
+      <button class="second petit" id="btn-nouvelle">Nouvelle partie</button>
+    </div>
+  </header>
+
+  <section class="scores">
+    <div class="joueur" id="carte-0">
+      <div class="nom" id="nom-0">Vous</div>
+      <div class="score"><span id="score-0">0</span> <small>/ 343</small></div>
+      <div class="barre"><div id="barre-0"></div></div>
+      <div class="badges" id="badges-0"></div>
+    </div>
+    <div class="joueur" id="carte-1">
+      <div class="nom" id="nom-1">Arthur</div>
+      <div class="score"><span id="score-1">0</span> <small>/ 343</small></div>
+      <div class="barre"><div id="barre-1"></div></div>
+      <div class="badges" id="badges-1"></div>
+    </div>
+  </section>
+
+  <section class="plateau">
+    <div class="banniere" id="banniere">&nbsp;</div>
+    <div class="des" id="des">
+      <div class="emplacement"><div class="de vide" id="de-0"></div><span>chouette</span></div>
+      <div class="emplacement"><div class="de vide" id="de-1"></div><span>chouette</span></div>
+      <div class="emplacement"><div class="de cul vide" id="de-2"></div><span>le cul</span></div>
+    </div>
+    <div class="combinaison" id="combinaison">&nbsp;</div>
+  </section>
+
+  <section class="bulle" id="bulle" hidden>
+    <div class="bulle-titre"></div>
+    <div class="bulle-texte"></div>
+  </section>
+
+  <section class="actions" id="actions"></section>
+
+  <section class="journal" id="journal" aria-live="polite"></section>
+</div>
+
+<!-- Nouvelle partie -->
+<div class="voile" id="fen-partie">
+  <div class="fenetre">
+    <h2>Nouvelle partie</h2>
+    <p class="astuce">Première partie ? Lancez le <b>tutoriel</b> : il vous apprend les règles en jouant.</p>
+    <div class="champ">
+      <label for="opt-nom">Votre nom</label>
+      <input type="text" id="opt-nom" maxlength="20" value="Vous">
+    </div>
+    <div class="champ">
+      <label>Votre adversaire</label>
+      <div class="adversaires">
+        <input type="radio" name="adv" id="adv-karadoc" value="karadoc">
+        <label for="adv-karadoc"><b>Karadoc</b>Lent à réagir, joue au petit bonheur.</label>
+        <input type="radio" name="adv" id="adv-arthur" value="arthur" checked>
+        <label for="adv-arthur"><b>Arthur</b>Réflexes honnêtes, joue raisonnablement.</label>
+        <input type="radio" name="adv" id="adv-perceval" value="perceval">
+        <label for="adv-perceval"><b>Perceval</b>Le spécialiste. Rapide et calculateur.</label>
+      </div>
+    </div>
+    <div class="champ">
+      <label class="case"><input type="checkbox" id="opt-pile" checked> <span><b>343 pile</b> : un score qui dépasse 343 recule d'autant (340 + 5 → 338).</span></label>
+      <label class="case"><input type="checkbox" id="opt-aide" checked> <span><b>Aide aux réflexes</b> : afficher le nom de la combinaison pendant les cris.</span></label>
+      <label class="case"><input type="checkbox" id="opt-conseils"> <span><b>Conseils</b> : expliquer chaque règle la première fois et conseiller à chaque choix.</span></label>
+    </div>
+    <div class="pied">
+      <button class="second" id="btn-annuler-partie">Annuler</button>
+      <button id="btn-tuto">📜 Tutoriel</button>
+      <button class="vert" id="btn-lancer-partie">Commencer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Règles -->
+<div class="voile" id="fen-regles">
+  <div class="fenetre">
+    <h2>Règles du Cul de Chouette</h2>
+    <p>Jeu de dés tiré de <i>Kaamelott</i>, règles formalisées par les fans. On joue avec trois dés : on lance d'abord les deux <b>chouettes</b>, puis le <b>cul</b>. Le premier joueur à atteindre <b>343 points</b> gagne. Les scores peuvent devenir négatifs.</p>
+
+    <h3>Combinaisons</h3>
+    <table>
+      <tr><th>Nom</th><th>Exemple</th><th>Effet</th></tr>
+      <tr><td><b>Chouette</b></td><td>4 · 4 · 1</td><td>Carré de la paire : 4 × 4 = 16 pts. Peut être sirotée.</td></tr>
+      <tr><td><b>Velute</b></td><td>2 · 3 · 5</td><td>Deux dés font la somme du troisième : 2 × 5² = 50 pts.</td></tr>
+      <tr><td><b>Chouette-Velute</b></td><td>1·1·2 · 2·2·4 · 3·3·6</td><td>Une Chouette qui est aussi une Velute. Tout le monde crie <i>« Pas mou le caillou ! »</i> : le premier empoche la Velute (8, 32 ou 72 pts).</td></tr>
+      <tr><td><b>Cul de Chouette</b></td><td>5 · 5 · 5</td><td>40 + 10 × la valeur : de 50 à 100 pts.</td></tr>
+      <tr><td><b>Suite</b></td><td>3 · 4 · 5</td><td>Tout le monde crie <i>« Grelotte ça picote ! »</i> : le dernier perd 10 pts. Le 1·2·3 compte comme une Suite.</td></tr>
+      <tr><td><b>Néant</b></td><td>1 · 3 · 6</td><td>Aucun point, mais le joueur reçoit une Grelottine.</td></tr>
+    </table>
+
+    <h3>Le Sirotage</h3>
+    <p>Sur une Chouette, on peut <b>siroter</b> : relancer le dé qui ne fait pas partie de la paire. S'il tombe sur la valeur de la paire, c'est un Cul de Chouette (50 à 100 pts). Sinon, on <b>perd</b> les points de la Chouette.</p>
+    <p>Pendant ce temps, les adversaires parient sur ce dé en criant un oiseau : 1 Linotte, 2 Alouette, 3 Fauvette, 4 Mouette, 5 Bergeronnette, 6 Chouette. Un pari juste rapporte <b>25 pts</b>.</p>
+
+    <h3>La Grelottine</h3>
+    <p>Le joueur qui fait un Néant reçoit une Grelottine (une seule à la fois). Juste avant le tour d'un adversaire, il peut l'utiliser pour le <b>défier</b> sur une combinaison et miser des points. Si le défié la réussit, il prend la mise au grelottin ; sinon, le grelottin la lui prend. Mise maximale, en pourcentage du plus petit des deux scores (5 pts au minimum) : Chouette 33 %, Velute 25 %, Cul de Chouette 16 %.</p>
+
+    <h3>Le Civet</h3>
+    <p>Une fois par partie, avant de lancer, un joueur peut annoncer un <b>Civet</b> : il parie jusqu'à <b>102 pts</b> sur la combinaison qu'il va obtenir. Juste : il gagne la mise. Faux : il la perd.</p>
+
+    <h3>La Bévue</h3>
+    <p>Pousser le mauvais cri (« Pas mou le caillou » sur une Suite, ou l'inverse) est une Bévue : <b>−10 pts</b>.</p>
+
+    <p class="note"><i>Les règles du Cul de Chouette varient beaucoup d'une table à l'autre. Celles-ci sont une version cohérente et jouable des conventions de fans les plus courantes.</i></p>
+    <div class="pied"><button id="btn-fermer-regles">Fermer</button></div>
+  </div>
+</div>
+
+<!-- Fin de partie -->
+<div class="voile" id="fen-fin">
+  <div class="fenetre centre">
+    <h2 id="fin-titre"></h2>
+    <p id="fin-texte"></p>
+    <div class="pied centre"><button class="vert" id="btn-rejouer">Rejouer</button></div>
+  </div>
+</div>
+
+<!-- Sons et voix -->
+<div class="voile" id="fen-son">
+  <div class="fenetre">
+    <h2>Sons et voix</h2>
+    <div class="champ">
+      <label>Mode</label>
+      <div class="choix-son">
+        <label class="case"><input type="radio" name="son-mode" value="tout"> 🔊 Sons et voix</label>
+        <label class="case"><input type="radio" name="son-mode" value="sons"> 🔈 Sons seulement</label>
+        <label class="case"><input type="radio" name="son-mode" value="muet"> 🔇 Muet</label>
+      </div>
+    </div>
+    <div class="champ">
+      <label for="son-volume">Volume</label>
+      <input type="range" id="son-volume" min="0" max="100" class="plein">
+    </div>
+    <div class="champ">
+      <label for="voix-joueur">Votre voix</label>
+      <div class="ligne-voix">
+        <select id="voix-joueur"></select>
+        <button class="second petit" id="test-joueur">▶ Tester</button>
+      </div>
+    </div>
+    <div class="champ">
+      <label for="voix-adversaire">Voix de l'adversaire</label>
+      <div class="ligne-voix">
+        <select id="voix-adversaire"></select>
+        <button class="second petit" id="test-adversaire">▶ Tester</button>
+      </div>
+    </div>
+    <p class="astuce" id="voix-astuce"></p>
+    <div class="champ">
+      <label>Vos propres cris</label>
+      <button class="vert plein" id="btn-cris">🎙️ Enregistrer vos cris au micro</button>
+    </div>
+    <div class="pied"><button id="btn-fermer-son">Fermer</button></div>
+  </div>
+</div>
+
+<!-- Cris enregistrés -->
+<div class="voile" id="fen-cris">
+  <div class="fenetre">
+    <h2>🎙️ Vos cris</h2>
+    <p>Enregistrez vos propres cris : ils remplacent la voix de synthèse pendant la partie.</p>
+    <div class="onglets">
+      <button class="onglet actif" id="onglet-joueur">Vous</button>
+      <button class="onglet" id="onglet-adversaire">L'adversaire</button>
+    </div>
+    <p class="astuce" id="cris-astuce"></p>
+    <p class="erreur" id="cris-erreur" hidden></p>
+    <div class="liste-cris" id="liste-cris"></div>
+    <div class="pied">
+      <button class="second" id="btn-effacer-cris">Tout effacer</button>
+      <button id="btn-fermer-cris">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Réflexe -->
+<div class="voile reflexe" id="fen-reflexe">
+  <div class="fenetre">
+    <h2 id="reflexe-titre">RÉFLEXE !</h2>
+    <div class="indice" id="reflexe-indice"></div>
+    <div class="des" id="reflexe-des"></div>
+    <div class="reflexe-texte" id="reflexe-explication" hidden></div>
+    <div class="decompte" id="reflexe-decompte" hidden></div>
+    <div class="cris" id="reflexe-cris"></div>
+    <div class="reflexe-texte resultat" id="reflexe-resultat" hidden></div>
+    <div class="pied centre" id="reflexe-pied"></div>
+  </div>
+</div>
+
+<script src="js/sons.js"></script>
+<script src="js/cris.js"></script>
+<script src="js/tuto.js"></script>
+<script src="js/jeu.js"></script>
+</body>
+</html>
