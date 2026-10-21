@@ -44,6 +44,11 @@ const LECONS = {
     "Une fois par partie, avant de lancer, vous pouvez annoncer un **Civet** : vous pariez jusqu'à **102 pts** sur la combinaison que vous allez faire.\n" +
     "Juste : vous gagnez la mise. Faux : vous la perdez.\n" +
     "Petit secret : les dés de ce tutoriel sont encore arrangés… Essayez un Civet sur **Cul de Chouette** !"],
+  jauge: ["La jauge de lancer",
+    "Avant de lancer, un curseur va et vient sur une jauge. Arrêtez-le dans la **zone verte** : clic, Espace ou Entrée.\n" +
+    "Trop mou, un dé roule hors du tapis ; trop fort, il s'envole hors de la table. Dans les deux cas : **−10 pts**, et on relance."],
+  "hors-tapis": ["Dé hors du tapis",
+    "Un dé qui sort du tapis est une **Bévue** : le lanceur perd **10 pts**. Ce lancer ne compte pas, les dés sont aussitôt relancés."],
   depassement: ["343 pile",
     "Avec la règle des **343 pile**, ce qui dépasse 343 est retiré : à 340, gagner 5 points fait redescendre à 338. En fin de partie, il faut viser juste."],
   fin: ["Fin du tutoriel",

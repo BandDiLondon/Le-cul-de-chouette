@@ -97,6 +97,9 @@ function dessinerPortrait(el, nom, image) {
   }
 }
 
+// Le nom par défaut « Vous » se conjugue à la 2e personne : accorder(j, "lancez", "lance")
+const accorder = (j, vous, autre) => j.nom === "Vous" ? vous : autre;
+
 function log(texte, classe = "") {
   const p = document.createElement("p");
   p.textContent = texte;
@@ -152,7 +155,7 @@ let reglages = chargerReglages();
 let regles = { ...reglages };
 
 function chargerReglages() {
-  const defaut = { nom: "Vous", adv: "arthur", pile: true, aide: true, conseils: false, portrait: "" };
+  const defaut = { nom: "Vous", adv: "arthur", pile: true, aide: true, conseils: false, portrait: "", jauge: true };
   try { return { ...defaut, ...JSON.parse(localStorage.getItem("cdc-reglages") || "{}") }; }
   catch { return defaut; }
 }
@@ -172,7 +175,7 @@ function nouvellePartie(tuto = false, manche = null) {
 
   let joueurs, moi = 0, intro;
   if (manche) {
-    regles = { ...reglages, pile: enLigne.pile };
+    regles = { ...reglages, pile: enLigne.pile, jauge: enLigne.jauge };
     // Les deux appareils rangent les joueurs dans le même ordre : l'hôte d'abord
     const noms = enLigne.hote ? [enLigne.nomMoi, enLigne.nomAutre] : [enLigne.nomAutre, enLigne.nomMoi];
     if (noms[0] === noms[1]) noms[1] += " 2";
@@ -250,7 +253,7 @@ function ajouter(j, n, motif) {
     const exces = nv - CIBLE;
     nv = CIBLE - exces;
     P.recul = true;
-    log(`${j.nom} dépasse 343 de ${exces} et redescend à ${nv}.`, "alerte");
+    log(`${j.nom} ${accorder(j, "dépassez", "dépasse")} 343 de ${exces} et ${accorder(j, "redescendez", "redescend")} à ${nv}.`, "alerte");
   }
   j.score = nv;
   flottant(P.joueurs.indexOf(j), n);
@@ -337,31 +340,198 @@ function surligner(des, combi) {
 }
 
 // ---------- Dés ----------
-function animer(indices, valeurs, duree) {
+const mouvementReduit = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const OMBRE_SOL = "3px 4px 0 #b9ad92, 4px 8px 14px rgba(0,0,0,.5)";
+// Moments clés d'un lancer, en fraction de sa durée
+const CHOC = 0.6;
+const REBOND = 0.86;
+
+// Trajectoire d'un dé lancé sur la table : il arrive d'en haut en tournant, s'écrase un peu au choc,
+// rebondit une fois et s'immobilise légèrement de travers. sens = -1 (vient de la gauche) ou 1 (de la droite) ;
+// force (0 à 1, donnée par la jauge) : un lancer appuyé vient de plus loin et de plus haut
+function trajectoire(el, duree, sens, force = 0.5) {
+  const elan = 0.6 + force * 0.8;
+  const dx = sens * hasard(35, 75) * elan;
+  const dy = -hasard(45, 70) * elan;
+  el.style.opacity = "";
+  // Un nombre entier de quarts de tour : le dé retombe « droit », à la petite inclinaison près
+  const tours = sens * 90 * (5 + Math.floor(Math.random() * 4));
+  const penche = hasard(-7, 7);
+  const t = (x, y, r, sx = 1, sy = sx) => `translate(${x}px, ${y}px) rotate(${r}deg) scale(${sx}, ${sy})`;
+  const chute = "cubic-bezier(.5, 0, .9, .5)";   // accélère en tombant
+  const montee = "cubic-bezier(.1, .5, .5, 1)";  // ralentit en remontant
+  const anim = el.animate([
+    // Le dé du lancer précédent est « ramassé » : il réapparaît en l'air
+    { offset: 0, transform: t(dx, dy, 0, 1.3), boxShadow: "3px 4px 0 #b9ad92, 22px 44px 26px rgba(0,0,0,.25)", opacity: 0, easing: chute },
+    { offset: 0.1, opacity: 1 },
+    { offset: CHOC, transform: t(dx * 0.12, 0, tours * 0.82, 1.12, 0.86), boxShadow: OMBRE_SOL, easing: montee },
+    { offset: 0.74, transform: t(dx * 0.05, -14, tours * 0.95, 1.05), boxShadow: "3px 4px 0 #b9ad92, 9px 18px 16px rgba(0,0,0,.4)", easing: chute },
+    { offset: REBOND, transform: t(0, 0, tours + penche * 0.6, 1.05, 0.95), boxShadow: OMBRE_SOL },
+    { offset: 1, transform: t(0, 0, tours + penche), boxShadow: OMBRE_SOL }
+  ], { duration: duree });
+  return anim.finished.then(() => {
+    // Position de repos équivalente, gardée jusqu'au prochain lancer
+    el.style.transform = `rotate(${(tours + penche) % 360}deg)`;
+    anim.cancel();
+  }).catch(() => {});
+}
+
+function animer(indices, valeurs, duree, force) {
   const j0 = jeton;
+  const reduit = mouvementReduit();
   return garde(new Promise(resoudre => {
-    indices.forEach(i => { elDes[i].classList.add("roule"); elDes[i].classList.remove("surligne"); });
-    Sons.jouer("secoue", duree / 1000);
-    const iv = setInterval(() => indices.forEach(i => dessinerDe(elDes[i], jet())), 70);
+    indices.forEach(i => elDes[i].classList.remove("surligne"));
+    Sons.jouer("secoue", duree * CHOC / 1000);
+    const vols = reduit ? [] : indices.map((i, n) => trajectoire(elDes[i], duree, indices.length > 1 && n === 0 ? -1 : 1, force));
+
+    // Les faces défilent vite, puis de plus en plus lentement ; la vraie face apparaît au choc
+    let ecoule = 0;
+    let delai = 40;
+    const defiler = () => {
+      if (j0 !== jeton || ecoule + delai >= duree * CHOC) return;
+      indices.forEach(i => dessinerDe(elDes[i], jet()));
+      ecoule += delai;
+      delai *= 1.22;
+      setTimeout(defiler, delai);
+    };
+    defiler();
     setTimeout(() => {
-      clearInterval(iv);
-      indices.forEach(i => elDes[i].classList.remove("roule"));
-      if (j0 === jeton) {
-        indices.forEach(i => dessinerDe(elDes[i], valeurs[i]));
-        Sons.jouer("pose");
-      }
-      resoudre();
-    }, duree);
+      if (j0 !== jeton) return;
+      indices.forEach(i => dessinerDe(elDes[i], valeurs[i]));
+      Sons.jouer("pose");
+    }, duree * CHOC);
+    if (!reduit) setTimeout(() => { if (j0 === jeton) Sons.jouer("rebond"); }, duree * REBOND);
+
+    Promise.all([...vols, new Promise(r => setTimeout(r, duree))]).then(resoudre);
   }));
 }
 
-async function lancerDes() {
+// Petit saut des dés qui forment la combinaison ; le Cul de Chouette a droit à un double saut en cascade
+function celebrer(combi) {
+  if (mouvementReduit() || combi === "neant") return;
+  const cibles = combi === "chouette" ? elDes.filter(el => el.classList.contains("surligne")) : elDes;
+  const cul = combi === "cul";
+  cibles.forEach((el, n) => {
+    // Mêmes fonctions dans chaque étape : le navigateur interpole proprement, sans rotation parasite
+    const base = el.style.transform || "";
+    const etape = (y, s) => ({ transform: `translateY(${y}px) ${base} scale(${s})` });
+    el.animate([etape(0, 1), { ...etape(cul ? -24 : -12, 1.08), offset: 0.4 }, etape(0, 1)],
+      { duration: cul ? 480 : 380, delay: n * 90, easing: "ease-out", iterations: cul ? 2 : 1 });
+  });
+}
+
+async function lancerDes(force = 0.5) {
   const des = P.script.length ? P.script.shift() : [jetPartie(), jetPartie(), jetPartie()];
   annoncer(null);
-  await animer([0, 1], des, 600);
-  await pause(150);
-  await animer([2], des, 500);
+  // Le cul du lancer précédent est repris en main pendant que les chouettes volent
+  if (!mouvementReduit()) elDes[2].style.opacity = "0";
+  await animer([0, 1], des, 850, force);
+  await animer([2], des, 750, force);
   return des;
+}
+
+// ---------- Jauge de lancer ----------
+const ZONE_VERTE = [0.3, 0.7];
+const tirDe = x => x < ZONE_VERTE[0] ? "court" : x > ZONE_VERTE[1] ? "long" : "ok";
+
+// Un curseur va et vient sur la barre ; le joueur l'arrête au clic, à l'Espace ou à l'Entrée.
+// Renvoie { tir: "ok" | "court" | "long", force } avec force entre 0 et 1
+function jaugeLancer() {
+  return garde(new Promise(resoudre => {
+    actions.innerHTML = "";
+    const q = document.createElement("div");
+    q.className = "question";
+    q.textContent = "Arrêtez la jauge dans la zone verte !";
+    const barre = document.createElement("div");
+    barre.className = "jauge";
+    barre.setAttribute("role", "slider");
+    barre.setAttribute("aria-label", "Force du lancer");
+    const zone = document.createElement("div");
+    zone.className = "jauge-zone";
+    zone.style.left = ZONE_VERTE[0] * 100 + "%";
+    zone.style.width = (ZONE_VERTE[1] - ZONE_VERTE[0]) * 100 + "%";
+    const curseur = document.createElement("div");
+    curseur.className = "jauge-curseur";
+    barre.append(zone, curseur);
+    const bouton = document.createElement("button");
+    bouton.textContent = "🎲 Lancer !";
+    actions.append(q, barre, bouton);
+
+    // Vitesse légèrement variable d'un lancer à l'autre, pour qu'on ne puisse pas jouer au rythme
+    const periode = hasard(1100, 1500);
+    const debut = performance.now();
+    let x = 0;
+    let image = 0;
+    const avancer = maintenant => {
+      // Partie abandonnée pendant que la jauge tournait : on arrête tout
+      if (!barre.isConnected) { document.removeEventListener("keydown", clavier); return; }
+      const p = ((maintenant - debut) % periode) / periode;
+      x = p < 0.5 ? p * 2 : 2 - p * 2;
+      curseur.style.left = x * 100 + "%";
+      barre.setAttribute("aria-valuenow", Math.round(x * 100));
+      image = requestAnimationFrame(avancer);
+    };
+    image = requestAnimationFrame(avancer);
+
+    let fini = false;
+    const arreter = () => {
+      if (fini) return;
+      fini = true;
+      cancelAnimationFrame(image);
+      document.removeEventListener("keydown", clavier);
+      const tir = tirDe(x);
+      barre.classList.add(tir === "ok" ? "reussi" : "rate");
+      q.textContent = tir === "ok" ? "Joli lancer !" : tir === "court" ? "Trop mou !" : "Trop fort !";
+      bouton.disabled = true;
+      cacherBulle();
+      setTimeout(() => resoudre({ tir, force: x }), 350);
+    };
+    const clavier = e => {
+      if (e.key === " " || e.key === "Enter") { e.preventDefault(); arreter(); }
+    };
+    bouton.onclick = arreter;
+    barre.onclick = arreter;
+    document.addEventListener("keydown", clavier);
+    bouton.focus();
+  }));
+}
+
+// L'ordinateur rate plus ou moins souvent selon son caractère
+function jaugeIA(j) {
+  const rate = { karadoc: 0.18, arthur: 0.07, perceval: 0.02 }[regles.adv] ?? 0.07;
+  if (Math.random() < rate) return Math.random() < 0.5 ? { tir: "court", force: 0.1 } : { tir: "long", force: 0.9 };
+  return { tir: "ok", force: hasard(ZONE_VERTE[0], ZONE_VERTE[1]) };
+}
+
+// Un lancer raté : un dé roule hors du tapis (trop mou) ou s'envole hors de la table (trop fort).
+// Les dés de ce lancer ne comptent pas : aucun tirage n'est consommé, ce qui garde les parties en ligne synchronisées
+async function horsDuTapis(j, tir) {
+  annoncer(null);
+  elDes.forEach(el => el.classList.remove("surligne"));
+  elDes[2].style.opacity = "0";
+  const perdu = elDes[Math.random() < 0.5 ? 0 : 1];
+  const reste = elDes.find(el => el !== perdu && el !== elDes[2]);
+  Sons.jouer("secoue", 0.4);
+  if (!mouvementReduit()) {
+    const sens = Math.random() < 0.5 ? -1 : 1;
+    const arrivee = tir === "long"
+      ? `translate(${sens * hasard(160, 260)}px, -260px) rotate(${sens * 900}deg) scale(1.6)`
+      : `translate(${sens * hasard(60, 120)}px, 170px) rotate(${sens * 540}deg) scale(0.6)`;
+    perdu.style.opacity = "";
+    reste.style.opacity = "0";
+    await garde(perdu.animate([
+      { transform: "translate(0px, -60px) rotate(0deg) scale(1.3)", opacity: 0 },
+      { offset: 0.15, opacity: 1 },
+      { transform: arrivee, opacity: 0 }
+    ], { duration: 800, easing: "cubic-bezier(.3, .1, .7, 1)" }).finished.catch(() => {}));
+    perdu.style.opacity = "0";
+  }
+  Sons.jouer("tombe");
+  $("combinaison").textContent = "Dé hors du tapis !";
+  log(`💥 ${j.nom} ${accorder(j, "lancez", "lance")} ${tir === "long" ? "trop fort" : "trop mollement"} : un dé sort du tapis !`, "alerte");
+  ajouter(j, -10, "dé hors du tapis");
+  await expliquer("hors-tapis");
+  await pause(900);
 }
 
 // ---------- Réflexes ----------
@@ -559,7 +729,8 @@ async function boucle() {
     if (defi) {
       adv.grelottine = false;
       majScores();
-      log(`🔔 « Grelottine ! » ${adv.nom} défie ${j.nom} sur une ${NOMS[defi.combi]} (mise : ${defi.mise}).`, "alerte");
+      const defiQui = j.nom === "Vous" ? `${adv.nom} vous défie` : `${adv.nom} ${accorder(adv, "défiez", "défie")} ${j.nom}`;
+      log(`🔔 « Grelottine ! » ${defiQui} sur une ${NOMS[defi.combi]} (mise : ${defi.mise}).`, "alerte");
       Sons.jouer("grelot");
       Sons.dire("Grelottine !", !estLocal(adv));
       if (estLocal(j)) await expliquer("defi-subi");
@@ -583,17 +754,28 @@ async function boucle() {
     if (civet) {
       j.civet = false;
       majScores();
-      log(`🐇 « Civet ! » ${j.nom} mise ${civet.mise} pts sur : ${NOMS[civet.combi]}.`, "alerte");
+      log(`🐇 « Civet ! » ${j.nom} ${accorder(j, "misez", "mise")} ${civet.mise} pts sur : ${NOMS[civet.combi]}.`, "alerte");
       Sons.jouer("civet");
       Sons.dire("Civet !", !estLocal(j));
     }
-    if (!estLocal(j)) attente(`${j.nom} lance les dés…`);
+    // 3. La jauge de lancer : trop mou ou trop fort, un dé sort du tapis
+    let lancer = { tir: "ok", force: 0.5 };
+    if (regles.jauge) {
+      lancer = await decider(j, "jauge", async () => {
+        await expliquer("jauge");
+        conseiller("Arrêtez le curseur dans la **zone verte** : clic, Espace ou Entrée. Trop mou ou trop fort, un dé sort du tapis : **−10 pts**.");
+        return jaugeLancer();
+      }, () => jaugeIA(j), `${j.nom} prend son élan…`);
+    }
+    attente(estLocal(j) ? "Les dés roulent…" : `${j.nom} lance les dés…`);
+    if (lancer.tir !== "ok") await horsDuTapis(j, lancer.tir);
 
-    const des = await lancerDes();
+    const des = await lancerDes(lancer.force);
     const combi = analyser(des);
     log(`🎲 ${j.nom} : ${des.join(" · ")} → ${NOMS[combi]}`);
     annoncer(combi);
     surligner(des, combi);
+    celebrer(combi);
     Sons.jouer(combi);
     await pause(combi === "suite" || combi === "chouette-velute" ? 250 : 500);
     await expliquer(combi);
@@ -607,11 +789,11 @@ async function boucle() {
     }
     if (defi) {
       if (correspond(combi, defi.combi)) {
-        log(`${j.nom} relève le défi !`, "info");
+        log(`${j.nom} ${accorder(j, "relevez", "relève")} le défi !`, "info");
         ajouter(j, defi.mise, "défi relevé");
         ajouter(adv, -defi.mise, "Grelottine perdue");
       } else {
-        log(`${j.nom} échoue au défi.`, "info");
+        log(`${j.nom} ${accorder(j, "échouez", "échoue")} au défi.`, "info");
         ajouter(adv, defi.mise, "Grelottine gagnée");
         ajouter(j, -defi.mise, "défi raté");
       }
@@ -633,8 +815,8 @@ async function boucle() {
 async function resoudreCombinaison(j, adv, des, combi) {
   switch (combi) {
     case "neant":
-      if (j.grelottine) log(`${j.nom} a déjà une Grelottine.`, "info");
-      else { j.grelottine = true; majScores(); log(`🔔 ${j.nom} reçoit une Grelottine.`, "info"); Sons.jouer("grelot"); }
+      if (j.grelottine) log(`${j.nom} ${accorder(j, "avez", "a")} déjà une Grelottine.`, "info");
+      else { j.grelottine = true; majScores(); log(`🔔 ${j.nom} ${accorder(j, "recevez", "reçoit")} une Grelottine.`, "info"); Sons.jouer("grelot"); }
       break;
 
     case "velute":
@@ -677,7 +859,7 @@ async function sirotage(j, adv, des) {
     return;
   }
 
-  log(`🍷 ${j.nom} sirote sa Chouette de ${v}…`, "info");
+  log(`🍷 ${j.nom} ${accorder(j, "sirotez votre", "sirote sa")} Chouette de ${v}…`, "info");
   Sons.jouer("sirote");
   let pari;
   if (adv.ia) {
@@ -710,6 +892,7 @@ async function sirotage(j, adv, des) {
     annoncer("cul");
     Sons.jouer("cul");
     surligner(des, "cul");
+    celebrer("cul");
     log(`✨ Le dé tombe sur ${nouveau} : Cul de Chouette !`, "info");
     ajouter(j, gainCul, "Sirotage réussi");
   } else {
@@ -797,7 +980,7 @@ function finDePartie(g) {
   attente("Partie terminée.");
   $("banniere").textContent = "Partie terminée";
   const humainGagne = estLocal(g);
-  log(`🏆 ${g.nom} atteint ${g.score} points et remporte la partie !`, "alerte");
+  log(`🏆 ${g.nom} ${accorder(g, "atteignez", "atteint")} ${g.score} points et ${accorder(g, "remportez", "remporte")} la partie !`, "alerte");
   $("fin-titre").textContent = humainGagne ? "🏆 Victoire !" : `👑 ${g.nom} l'emporte`;
   const perdant = P.joueurs.find(x => x !== g);
   $("fin-texte").textContent = humainGagne
@@ -819,7 +1002,8 @@ function finDePartie(g) {
 // Appelé par Reseau quand les deux joueurs sont connectés
 function demarrerEnLigne(infos) {
   $("fen-partie").classList.remove("ouvert");
-  enLigne = { ...infos, premier: 0, revancheMoi: false, revancheAutre: false };
+  // La jauge suit le réglage de l'hôte ; l'invité le reçoit avec chaque manche
+  enLigne = { ...infos, jauge: reglages.jauge, premier: 0, revancheMoi: false, revancheAutre: false };
   if (enLigne.hote) lancerManche(0);
   else {
     jeton++;
@@ -833,7 +1017,7 @@ function lancerManche(premier) {
   enLigne.revancheMoi = enLigne.revancheAutre = false;
   const graine = Math.floor(Math.random() * 2 ** 32);
   Reseau.viderFile();
-  Reseau.envoyer("debut", { graine, premier, pile: enLigne.pile });
+  Reseau.envoyer("debut", { graine, premier, pile: enLigne.pile, jauge: enLigne.jauge });
   nouvellePartie(false, { graine, premier });
 }
 
@@ -841,6 +1025,7 @@ Reseau.sur("debut", d => {
   if (!enLigne) return;
   Reseau.viderFile();
   enLigne.pile = !!d.pile;
+  enLigne.jauge = !!d.jauge;
   enLigne.premier = d.premier;
   enLigne.revancheMoi = enLigne.revancheAutre = false;
   nouvellePartie(false, { graine: d.graine, premier: d.premier });
@@ -919,6 +1104,7 @@ function ouvrirNouvellePartie() {
   $("opt-pile").checked = reglages.pile;
   $("opt-aide").checked = reglages.aide;
   $("opt-conseils").checked = reglages.conseils;
+  $("opt-jauge").checked = reglages.jauge;
   remplirChoixPortraits();
   $("btn-annuler-partie").style.display = P ? "" : "none";
   $("fen-partie").classList.add("ouvert");
@@ -931,6 +1117,7 @@ function demarrer(tuto) {
     pile: $("opt-pile").checked,
     aide: $("opt-aide").checked,
     conseils: $("opt-conseils").checked,
+    jauge: $("opt-jauge").checked,
     portrait: reglages.portrait
   };
   sauverReglages();

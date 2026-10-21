@@ -27,6 +27,7 @@ Et pour pimenter :
 - **La Grelottine** : gagnée sur un Néant, elle sert à défier l'adversaire avant son lancer, en misant des points.
 - **Le Civet** : une fois par partie, pariez jusqu'à 102 points sur la combinaison que vous allez faire.
 - **La Bévue** : pousser le mauvais cri coûte 10 points.
+- **Le dé hors du tapis** : avant chaque lancer, arrêtez la jauge dans la zone verte. Trop mou ou trop fort, un dé sort du tapis : 10 points de pénalité, et on relance.
 
 Pas envie de lire ? Le **tutoriel** vous apprend tout en jouant.
 

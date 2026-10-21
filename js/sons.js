@@ -82,6 +82,17 @@ const Sons = (() => {
       note(160, 0, 0.12, { type: "triangle", volume: 0.35, glisse: 70 });
       bruit(0, 0.06, { volume: 0.25, filtre: 1200, q: 1 });
     },
+    // Un dé qui tombe par terre : choc sourd, puis il roule un peu
+    tombe: () => {
+      note(95, 0, 0.25, { type: "sine", volume: 0.45, glisse: 50, attaque: 0.004 });
+      bruit(0, 0.12, { volume: 0.3, filtre: 500, type: "lowpass" });
+      for (let i = 0; i < 4; i++) bruit(0.2 + i * 0.07, 0.03, { volume: 0.12 - i * 0.025, filtre: 2500, q: 2 });
+    },
+    // Petit rebond après le choc, plus léger
+    rebond: () => {
+      note(220, 0, 0.06, { type: "triangle", volume: 0.14, glisse: 120 });
+      bruit(0, 0.03, { volume: 0.1, filtre: 1800, q: 1 });
+    },
     // Hululement « hou-hou »
     chouette: () => {
       note(440, 0, 0.22, { volume: 0.22, glisse: 400, attaque: 0.04 });

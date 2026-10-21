@@ -98,6 +98,7 @@
       <label class="case"><input type="checkbox" id="opt-pile" checked> <span><b>343 pile</b> : un score qui dépasse 343 recule d'autant (340 + 5 → 338).</span></label>
       <label class="case"><input type="checkbox" id="opt-aide" checked> <span><b>Aide aux réflexes</b> : afficher le nom de la combinaison pendant les cris.</span></label>
       <label class="case"><input type="checkbox" id="opt-conseils"> <span><b>Conseils</b> : expliquer chaque règle la première fois et conseiller à chaque choix.</span></label>
+      <label class="case"><input type="checkbox" id="opt-jauge" checked> <span><b>Jauge de lancer</b> : doser la force du lancer ; trop mou ou trop fort, un dé sort du tapis (−10 pts).</span></label>
     </div>
     <div class="pied">
       <button class="second" id="btn-annuler-partie">Annuler</button>
@@ -137,6 +138,9 @@
 
     <h3>La Bévue</h3>
     <p>Pousser le mauvais cri (« Pas mou le caillou » sur une Suite, ou l'inverse) est une Bévue : <b>−10 pts</b>.</p>
+
+    <h3>Le dé hors du tapis</h3>
+    <p>Un dé qui sort du tapis est aussi une Bévue : <b>−10 pts</b> pour le lanceur, et on relance. Dans le jeu, une jauge règle la force du lancer : arrêtez-la dans la zone verte. Trop mou, le dé roule hors du tapis ; trop fort, il s'envole hors de la table. La jauge peut être désactivée dans « Nouvelle partie ».</p>
 
     <p class="note"><i>Les règles du Cul de Chouette varient beaucoup d'une table à l'autre. Celles-ci sont une version cohérente et jouable des conventions de fans les plus courantes.</i></p>
     <div class="pied"><button id="btn-fermer-regles">Fermer</button></div>

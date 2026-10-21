@@ -4,7 +4,8 @@
 // et seules les décisions des joueurs et leurs temps de réaction passent par le réseau.
 
 const Reseau = (() => {
-  const VERSION = 1;
+  // À augmenter dès que les messages échangés changent (2 : jauge de lancer)
+  const VERSION = 2;
   const PREFIXE = "cul-de-chouette-";
   const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const URL_EN_LIGNE = "https://banddilondon.github.io/Le-cul-de-chouette/";
