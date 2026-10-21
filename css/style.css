@@ -103,7 +103,8 @@ button.petit { padding: 6px 10px; font-size: 13px; }
   border-radius: 14px;
   box-shadow: 3px 4px 0 #b9ad92, 4px 8px 14px rgba(0,0,0,.5);
   display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr);
-  padding: 12%;
+  /* Marge fixe : un pourcentage se calculerait sur la largeur du conteneur, pas du dé */
+  padding: clamp(7px, 2vw, 9px);
 }
 .de.cul { background: linear-gradient(145deg, #fff3e0, #eed5ae); }
 .de .pip { width: 72%; aspect-ratio: 1; border-radius: 50%; place-self: center; }
@@ -281,7 +282,7 @@ input.lien {
 @keyframes clignote { from { opacity: 1; } to { opacity: .55; } }
 .reflexe .indice { color: var(--or-clair); margin: 4px 0 12px; min-height: 22px; }
 .reflexe .des { margin: 10px 0 18px; }
-.reflexe .de { width: 54px; }
+.reflexe .de { width: 54px; padding: 7px; }
 .reflexe .cris { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .reflexe .cris button { font-size: 17px; padding: 18px 10px; background: var(--rouge-vif); }
 .reflexe .cris button.juste { background: var(--vert); opacity: 1; }
