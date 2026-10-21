@@ -717,14 +717,18 @@ function bilanReflexe(combi, rs) {
   const indices = rs.map((_, i) => i);
   const temps = i => rs[i].res === "juste" ? rs[i].ms : Infinity;
   const bevues = indices.filter(i => rs[i].res === "faux");
-  const autres = indices.filter(i => rs[i].res !== "faux");
   let derniers = [];
   let gagnant = null;
   if (combi === "suite") {
-    // Le dernier à crier perd 10 pts ; celui qui a fait une Bévue est déjà puni
-    if (autres.length >= 2) {
-      const pire = Math.max(...autres.map(temps));
-      derniers = autres.filter(i => temps(i) === pire);
+    // Comme le disent les règles : « le dernier à crier, ou celui qui ne crie pas, perd 10 pts ».
+    // Ceux qui n'ont pas crié sont donc toujours derniers ; sinon, le plus lent des bons cris, s'ils sont au moins deux.
+    // Celui qui a fait une Bévue est déjà puni et n'est jamais compté comme dernier.
+    const muets = indices.filter(i => rs[i].res === "rien");
+    const justes = indices.filter(i => rs[i].res === "juste");
+    if (muets.length) derniers = muets;
+    else if (justes.length >= 2) {
+      const pire = Math.max(...justes.map(temps));
+      derniers = justes.filter(i => temps(i) === pire);
     }
   } else {
     const justes = indices.filter(i => rs[i].res === "juste");
@@ -975,7 +979,10 @@ async function boucle() {
       }
     }
 
-    if (P.recul) await expliquer("depassement");
+    if (P.recul) {
+      await expliquer("depassement");
+      P.recul = false;
+    }
 
     const g = gagnant();
     if (g) return finDePartie(g);
@@ -1042,12 +1049,14 @@ async function sirotage(j, des) {
   // Chaque adversaire peut parier sur le dé relancé, dans l'ordre du jeu
   const paris = [];
   for (const a of autresQue(P.joueurs.indexOf(j))) {
+    // Parier est gratuit : pas d'option « ne pas parier », qui ne ferait que perdre des points
     const n = await decider(a, "oiseau", async () => {
       await expliquer("oiseaux");
       conseiller(conseilOiseaux());
-      return choisir(`${j.nom} sirote ! Pariez sur le dé relancé (+25 si juste) :`,
+      const choix = await choisir(`${j.nom} sirote ! Pariez sur le dé relancé (+25 si juste) :`,
         [1, 2, 3, 4, 5, 6].map(n => ({ label: `${n} · ${OISEAUX[n]}`, val: n, classe: "second" }))
-          .concat([{ label: "Pas de pari", val: 0, classe: "second" }]), true);
+          .concat([{ label: "🎲 Oiseau au hasard", val: 0, classe: "" }]), true);
+      return choix || 1 + Math.floor(Math.random() * 6);
     }, () => 1 + Math.floor(aleaIA() * 6), `${a.nom} choisit un oiseau…`);
     if (!n) continue;
     paris.push({ joueur: a, n });
@@ -1124,9 +1133,10 @@ function siroterIA(j, v) {
     if (j.score + 40 + 10 * v === CIBLE) return true;
     if (j.score + v * v === CIBLE) return false;
   }
-  // Espérance du sirotage : (40 + 10v)/6 − 5v²/6, meilleure que v² seulement pour v ≤ 2
-  if (v <= 2) return true;
-  if (v === 3 && meilleurAutre(j) - j.score > 80) return aleaIA() < 0.5;
+  // Espérance du sirotage : (40 + 10v)/6 − 5v²/6. Mais chaque adversaire gagne au passage un pari d'oiseau
+  // (≈ 4,2 pts) : une fois ce cadeau déduit, seule une paire de 1 vaut mieux sirotée que gardée
+  if (v === 1) return true;
+  if (v <= 3 && meilleurAutre(j) - j.score > 80) return aleaIA() < 0.5;
   return false;
 }
 

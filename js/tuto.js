@@ -8,7 +8,7 @@ const SCENARIO_TUTO = [
   [3, 4, 5], // vous : Suite
   [1, 1, 2], // adversaire : Chouette-Velute
   [1, 3, 6], // vous : Néant et Grelottine
-  [2, 2, 5], // adversaire : Chouette sirotée, pari des oiseaux
+  [1, 1, 5], // adversaire : Chouette de 1, qu'il sirote (seule paire qui le vaut), pari des oiseaux
   [6, 6, 6]  // vous : Civet, puis Cul de Chouette
 ];
 
@@ -180,26 +180,34 @@ function gainReel(score, n) {
 }
 
 const virgule = n => String(Math.round(n * 10) / 10).replace(".", ",").replace("-", "−");
+// Gain moyen d'un pari d'oiseau : 25 pts une fois sur 6
+const GAIN_OISEAU = 25 / 6;
 
 function conseilSirotage(j, v) {
   const pts = v * v;
   const garder = gainReel(j.score, pts);
   const reussite = gainReel(j.score, 40 + 10 * v);
   const moyenne = reussite / 6 - pts * 5 / 6;
+  // Siroter offre à chaque adversaire un pari d'oiseau gratuit : 25 pts une fois sur 6, soit ≈ 4,2 pts en moyenne.
+  // On compare donc ce que vous gagnez par rapport à chacun d'eux, pas seulement vos propres points
+  const adversaires = P.joueurs.length - 1;
+  const ecart = moyenne - GAIN_OISEAU;
   let reco;
   if (regles.pile && j.score + pts === CIBLE) reco = `**gardez** : +${pts} vous amène pile à 343, vous gagnez !`;
   else if (regles.pile && j.score + 40 + 10 * v === CIBLE) reco = "**sirotez** : un Cul de Chouette vous ferait gagner la partie.";
-  else if (moyenne > garder) reco = "**sirotez**, c'est plus rentable en moyenne avec une petite Chouette.";
+  else if (ecart > garder) reco = "**sirotez**, même en comptant les paris offerts, c'est plus rentable avec une si petite Chouette.";
+  else if (moyenne > garder) reco = "**gardez** : siroter vous rapporterait un peu plus, mais les paris offerts font gagner davantage vos adversaires.";
   else reco = "**gardez**, le sirotage ne vaut pas le risque avec une Chouette aussi grosse.";
   let t = `Garder : **${signe(garder)}** à coup sûr.\n` +
     `Siroter : 1 chance sur 6 de **${signe(reussite)}** (Cul de Chouette de ${v}), sinon **−${pts}**. En moyenne, siroter rapporte ${virgule(moyenne)} pts.\n` +
+    `Mais ${adversaires > 1 ? `chacun de vos ${adversaires} adversaires` : "votre adversaire"} parie alors gratuitement sur un oiseau, et y gagne en moyenne **+${virgule(GAIN_OISEAU)} pts**.\n` +
     `Conseil : ${reco}`;
   if (garder !== pts) t += "\nAttention : vous êtes près de 343, les points en trop vous feront reculer.";
   return t;
 }
 
 function conseilOiseaux() {
-  return "Chaque oiseau a **1 chance sur 6** de sortir. Parier ne coûte rien : choisissez n'importe lequel plutôt que « Pas de pari » !";
+  return "Chaque oiseau a **1 chance sur 6** de sortir, et parier ne coûte rien : choisissez celui qui vous plaît, ou laissez le hasard décider.";
 }
 
 function analyseDefi(grelottin, cible) {
