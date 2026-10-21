@@ -2,7 +2,9 @@
 
 Le jeu de dés de *Kaamelott*, jouable dans le navigateur contre Karadoc, Arthur ou Perceval.
 
-Aucune installation : ouvrez `index.html` dans votre navigateur, ou jouez en ligne sur GitHub Pages.
+**▶ [Jouer en ligne](https://banddilondon.github.io/Le-cul-de-chouette/)**
+
+Aucune installation : jouez en ligne, ou téléchargez le dépôt et ouvrez `index.html` dans votre navigateur.
 
 ## Le jeu
 
