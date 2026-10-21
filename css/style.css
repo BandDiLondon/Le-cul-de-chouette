@@ -142,6 +142,7 @@ button.petit { padding: 6px 10px; font-size: 13px; }
 
 /* Zone des dés */
 .plateau {
+  position: relative;
   background: radial-gradient(ellipse at center, #1f5a33, #123b21);
   border: 6px solid #5a3d24;
   border-radius: 14px;
@@ -170,6 +171,16 @@ button.petit { padding: 6px 10px; font-size: 13px; }
 .de.cul .pip.on { background: radial-gradient(circle at 35% 35%, #d33, #6d0b0b); }
 .de.vide .pip { background: none !important; }
 .de.surligne { box-shadow: 3px 4px 0 #b9ad92, 0 0 0 4px var(--or-clair), 4px 8px 14px rgba(0,0,0,.5); }
+/* Chouette volante : déborde du tapis vers le haut et le bas, passe au-dessus de tout sans gêner les clics */
+.vol-chouette {
+  position: absolute; left: -6%; right: -6%; top: 50%;
+  aspect-ratio: 16 / 9; transform: translateY(-50%);
+  pointer-events: none; z-index: 6;
+  opacity: 0; transition: opacity .25s;
+}
+.vol-chouette.visible { opacity: 1; }
+.vol-chouette video, .vol-chouette img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
 /* Le lancer est animé en JavaScript (trajectoire()) : le dé doit pouvoir passer devant le reste de la table */
 .emplacement { position: relative; z-index: 1; }.combinaison {
   font-family: 'Cinzel', serif; font-weight: 800; font-size: clamp(20px, 5vw, 26px);

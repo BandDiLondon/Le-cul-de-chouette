@@ -168,7 +168,7 @@ let regles = { ...reglages };
 
 // advs : adversaires ordinateur en solo (1 à 3) ; pcsEnLigne : ordinateurs ajoutés à une partie en ligne (0 à 2)
 function chargerReglages() {
-  const defaut = { nom: "Vous", advs: ["arthur"], pcsEnLigne: [], pile: true, aide: true, conseils: false, portrait: "", jauge: true };
+  const defaut = { nom: "Vous", advs: ["arthur"], pcsEnLigne: [], pile: true, aide: true, conseils: false, portrait: "", jauge: true, chouetteVolante: true };
   let brut = {};
   try { brut = JSON.parse(localStorage.getItem("cdc-reglages") || "{}"); } catch {}
   const r = { ...defaut, ...brut };
@@ -481,6 +481,55 @@ function celebrer(combi) {
     el.animate([etape(0, 1), { ...etape(cul ? -24 : -12, 1.08), offset: 0.4 }, etape(0, 1)],
       { duration: cul ? 480 : 380, delay: n * 90, easing: "ease-out", iterations: cul ? 2 : 1 });
   });
+}
+
+// ---------- Chouette volante, sur un Cul de Chouette ----------
+// Chrome, Edge et Firefox lisent la vidéo WebM transparente. Safari (et tous les navigateurs d'iPhone) n'en gèrent
+// pas la transparence : ils reçoivent une image WebP animée, rechargée à chaque vol pour repartir du début
+const SANS_WEBM_TRANSPARENT = /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Edg|Android/.test(navigator.userAgent);
+let videoChouette = null;
+let finVolChouette = null;
+let imageChouette = null; // Blob de l'image WebP, téléchargé une seule fois
+
+async function volChouette() {
+  if (!regles.chouetteVolante || mouvementReduit()) return;
+  const zone = $("vol-chouette");
+  clearTimeout(finVolChouette);
+  if (SANS_WEBM_TRANSPARENT) {
+    let src = "images/chouette.webp";
+    try {
+      if (!imageChouette) imageChouette = await (await fetch(src)).blob();
+      src = URL.createObjectURL(imageChouette);
+    } catch {
+      src += "?" + Date.now();
+    }
+    const img = new Image();
+    img.alt = "";
+    img.src = src;
+    zone.replaceChildren(img);
+  } else {
+    if (!videoChouette) {
+      videoChouette = document.createElement("video");
+      videoChouette.src = "images/chouette.webm";
+      videoChouette.muted = true;
+      videoChouette.playsInline = true;
+      videoChouette.preload = "auto";
+      videoChouette.onended = () => zone.classList.remove("visible");
+    }
+    zone.replaceChildren(videoChouette);
+    videoChouette.currentTime = 0;
+    videoChouette.play().catch(() => zone.classList.remove("visible"));
+  }
+  zone.classList.add("visible");
+  // Le vol dure 5 s ; sécurité si la fin de la vidéo n'est pas signalée
+  finVolChouette = setTimeout(() => {
+    zone.classList.remove("visible");
+    if (SANS_WEBM_TRANSPARENT) {
+      const img = zone.querySelector("img");
+      if (img && img.src.startsWith("blob:")) URL.revokeObjectURL(img.src);
+      zone.replaceChildren();
+    }
+  }, 5300);
 }
 
 async function lancerDes(force = 0.5) {
@@ -864,6 +913,7 @@ async function boucle() {
     annoncer(combi);
     surligner(des, combi);
     celebrer(combi);
+    if (combi === "cul") volChouette();
     Sons.jouer(combi);
     await pause(combi === "suite" || combi === "chouette-velute" ? 250 : 500);
     await expliquer(combi);
@@ -978,6 +1028,7 @@ async function sirotage(j, des) {
     Sons.jouer("cul");
     surligner(des, "cul");
     celebrer("cul");
+    volChouette();
     log(`✨ Le dé tombe sur ${nouveau} : Cul de Chouette !`, "info");
     ajouter(j, gainCul, "Sirotage réussi");
   } else {
@@ -1225,6 +1276,7 @@ function ouvrirNouvellePartie() {
   $("opt-aide").checked = reglages.aide;
   $("opt-conseils").checked = reglages.conseils;
   $("opt-jauge").checked = reglages.jauge;
+  $("opt-chouette").checked = reglages.chouetteVolante;
   remplirChoixPortraits();
   $("btn-annuler-partie").style.display = P ? "" : "none";
   $("fen-partie").classList.add("ouvert");
@@ -1240,6 +1292,7 @@ function demarrer(tuto) {
     aide: $("opt-aide").checked,
     conseils: $("opt-conseils").checked,
     jauge: $("opt-jauge").checked,
+    chouetteVolante: $("opt-chouette").checked,
     portrait: reglages.portrait
   };
   sauverReglages();

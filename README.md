@@ -54,6 +54,7 @@ Pas envie de lire ? Le **tutoriel** vous apprend tout en jouant.
 
 **L'ambiance**
 - Des **portraits** pour les adversaires, et six au choix pour vous.
+- Une **chouette** qui traverse la table à chaque Cul de Chouette.
 - Des **sons** pour chaque moment : dés qui roulent, hululement de la Chouette, fanfare du Cul de Chouette, poing sur la table…
 - Des **cris prononcés** par la voix du navigateur. Les meilleures voix françaises sont dans **Microsoft Edge** (« Denise », « Henri »…).
 - **Vos propres cris** : enregistrez-les au micro, pour vous et pour votre adversaire. Ils remplacent la voix de synthèse.
