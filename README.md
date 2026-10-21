@@ -1,6 +1,6 @@
 # Le Cul de Chouette
 
-Le jeu de dés de *Kaamelott*, dans votre navigateur. Affrontez Karadoc, Arthur ou Perceval, ou défiez un ami en ligne.
+Le jeu de dés de *Kaamelott*, dans votre navigateur. De 2 à 4 joueurs : affrontez Karadoc, Arthur et Perceval, ou défiez un ami en ligne.
 
 ### ▶ [Jouer maintenant](https://banddilondon.github.io/Le-cul-de-chouette/)
 
@@ -33,7 +33,7 @@ Pas envie de lire ? Le **tutoriel** vous apprend tout en jouant.
 
 ## Ce qu'il y a dans le jeu
 
-**Trois adversaires**, chacun avec son style :
+**Trois adversaires**, chacun avec son style. Prenez-en un, deux ou les trois, pour jouer jusqu'à 4 :
 
 | | Réflexes | Jeu |
 |---|---|---|
@@ -46,8 +46,9 @@ Pas envie de lire ? Le **tutoriel** vous apprend tout en jouant.
 - Des **conseils** à chaque décision : les chances, le gain moyen de chaque option, et ce qu'il vaut mieux faire.
 - Des **réflexes expliqués** : la première fois, on vous dit quoi crier et pourquoi, puis un compte à rebours ; après chaque duel, le bilan avec les temps de chacun.
 
-**À deux en ligne**
+**En ligne, de 2 à 4**
 - Un joueur crée la partie et envoie le code ou le lien d'invitation ; l'autre le rejoint. Chacun joue sur son appareil.
+- Celui qui crée la partie peut ajouter un ou deux adversaires ordinateur : ils jouent exactement de la même façon sur les deux écrans.
 - Les deux écrans voient exactement les mêmes dés, et les réflexes restent justes malgré le décalage du réseau.
 - Revanches à volonté, le premier joueur alternant à chaque manche.
 

@@ -25,7 +25,7 @@
     </div>
   </header>
 
-  <section class="scores">
+  <section class="scores" id="scores">
     <div class="joueur" id="carte-0">
       <div class="entete">
         <div class="identite">
@@ -84,13 +84,13 @@
       <div class="choix-portrait"></div>
     </div>
     <div class="champ">
-      <label>Votre adversaire</label>
+      <label>Vos adversaires <span class="aide-champ">(1 à 3 : jusqu&#39;à 4 joueurs)</span></label>
       <div class="adversaires">
-        <input type="radio" name="adv" id="adv-karadoc" value="karadoc">
+        <input type="checkbox" name="adv" id="adv-karadoc" value="karadoc">
         <label for="adv-karadoc"><span class="portrait" data-adversaire="karadoc"></span><b>Karadoc</b>Lent à réagir, joue au petit bonheur.</label>
-        <input type="radio" name="adv" id="adv-arthur" value="arthur" checked>
+        <input type="checkbox" name="adv" id="adv-arthur" value="arthur" checked>
         <label for="adv-arthur"><span class="portrait" data-adversaire="arthur"></span><b>Arthur</b>Réflexes honnêtes, joue raisonnablement.</label>
-        <input type="radio" name="adv" id="adv-perceval" value="perceval">
+        <input type="checkbox" name="adv" id="adv-perceval" value="perceval">
         <label for="adv-perceval"><span class="portrait" data-adversaire="perceval"></span><b>Perceval</b>Le spécialiste. Rapide et calculateur.</label>
       </div>
     </div>
@@ -111,38 +111,143 @@
 
 <!-- Règles -->
 <div class="voile" id="fen-regles">
-  <div class="fenetre">
+  <div class="fenetre large regles">
     <h2>Règles du Cul de Chouette</h2>
-    <p>Jeu de dés tiré de <i>Kaamelott</i>, règles formalisées par les fans. On joue avec trois dés : on lance d'abord les deux <b>chouettes</b>, puis le <b>cul</b>. Le premier joueur à atteindre <b>343 points</b> gagne. Les scores peuvent devenir négatifs.</p>
+    <p>Jeu de dés tiré de <i>Kaamelott</i>, règles formalisées par les fans. Tout ce qu'il faut pour jouer <b>avec de vrais dés</b> : trois dés à six faces, de quoi noter les scores, et de 2 à 6 joueurs.</p>
 
-    <h3>Combinaisons</h3>
-    <table>
-      <tr><th>Nom</th><th>Exemple</th><th>Effet</th></tr>
-      <tr><td><b>Chouette</b></td><td>4 · 4 · 1</td><td>Carré de la paire : 4 × 4 = 16 pts. Peut être sirotée.</td></tr>
-      <tr><td><b>Velute</b></td><td>2 · 3 · 5</td><td>Deux dés font la somme du troisième : 2 × 5² = 50 pts.</td></tr>
-      <tr><td><b>Chouette-Velute</b></td><td>1·1·2 · 2·2·4 · 3·3·6</td><td>Une Chouette qui est aussi une Velute. Tout le monde crie <i>« Pas mou le caillou ! »</i> : le premier empoche la Velute (8, 32 ou 72 pts).</td></tr>
-      <tr><td><b>Cul de Chouette</b></td><td>5 · 5 · 5</td><td>40 + 10 × la valeur : de 50 à 100 pts.</td></tr>
-      <tr><td><b>Suite</b></td><td>3 · 4 · 5</td><td>Tout le monde crie <i>« Grelotte ça picote ! »</i> : le dernier perd 10 pts. Le 1·2·3 compte comme une Suite.</td></tr>
-      <tr><td><b>Néant</b></td><td>1 · 3 · 6</td><td>Aucun point, mais le joueur reçoit une Grelottine.</td></tr>
+    <nav class="sommaire">
+      <a href="#r-but">But</a> · <a href="#r-tour">Un tour</a> · <a href="#r-combis">Combinaisons</a> · <a href="#r-reflexes">Cris</a> ·
+      <a href="#r-sirotage">Sirotage</a> · <a href="#r-grelottine">Grelottine</a> · <a href="#r-civet">Civet</a> · <a href="#r-bevue">Bévue</a> ·
+      <a href="#r-343">343</a> · <a href="#r-exemples">Exemples</a> · <a href="#r-tous">Tous les lancers</a>
+    </nav>
+
+    <h3 id="r-but">1. Le but</h3>
+    <p>Être le premier à atteindre <b>343 points</b>. Chaque joueur part de 0. Les scores peuvent devenir <b>négatifs</b>. On joue chacun son tour, dans le sens des aiguilles d'une montre.</p>
+
+    <h3 id="r-tour">2. Le déroulement d'un tour</h3>
+    <ol class="etapes">
+      <li><b>Défi</b> : juste avant le lancer, un adversaire qui a une Grelottine peut défier le lanceur (voir <a href="#r-grelottine">Grelottine</a>).</li>
+      <li><b>Civet</b> : le lanceur peut annoncer son Civet, une fois par partie (voir <a href="#r-civet">Civet</a>).</li>
+      <li><b>Lancer</b> : le lanceur jette d'abord les deux <b>chouettes</b>, puis le troisième dé, le <b>cul</b>. Si un dé sort du tapis : Bévue, −10 pts, et on relance les trois dés.</li>
+      <li><b>Combinaison</b> : on lit les trois dés et on applique la combinaison (points, cris, sirotage…).</li>
+      <li><b>Paris</b> : on règle le Civet, puis le défi de Grelottine, d'après le lancer de l'étape 3 (avant un éventuel sirotage).</li>
+      <li><b>Victoire ?</b> En fin de tour, si un joueur est à 343, il gagne. Sinon, au suivant.</li>
+    </ol>
+
+    <h3 id="r-combis">3. Les combinaisons et leurs points</h3>
+    <p>Un lancer correspond à <b>une seule</b> combinaison. S'il en remplit plusieurs, on prend la première de cette liste : <b>Cul de Chouette › Chouette-Velute › Suite › Velute › Chouette › Néant</b>. L'ordre des dés n'a pas d'importance.</p>
+
+    <h4>Chouette : deux dés identiques</h4>
+    <p>Le lanceur marque le <b>carré</b> de la valeur de la paire. Il peut aussi la <a href="#r-sirotage">siroter</a>.</p>
+    <table class="bareme">
+      <tr><th>Paire</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr>
+      <tr><th>Points</th><td>1</td><td>4</td><td>9</td><td>16</td><td>25</td><td>36</td></tr>
     </table>
 
-    <h3>Le Sirotage</h3>
-    <p>Sur une Chouette, on peut <b>siroter</b> : relancer le dé qui ne fait pas partie de la paire. S'il tombe sur la valeur de la paire, c'est un Cul de Chouette (50 à 100 pts). Sinon, on <b>perd</b> les points de la Chouette.</p>
-    <p>Pendant ce temps, les adversaires parient sur ce dé en criant un oiseau : 1 Linotte, 2 Alouette, 3 Fauvette, 4 Mouette, 5 Bergeronnette, 6 Chouette. Un pari juste rapporte <b>25 pts</b>.</p>
+    <h4>Velute : deux dés font la somme du troisième</h4>
+    <p>Le lanceur marque <b>deux fois le carré du plus grand dé</b> : 2 × grand × grand.</p>
+    <table>
+      <tr><th>Dés</th><th>Calcul</th><th>Points</th></tr>
+      <tr><td>1 · 3 · 4</td><td>2 × 4 × 4</td><td><b>32</b></td></tr>
+      <tr><td>1 · 4 · 5 et 2 · 3 · 5</td><td>2 × 5 × 5</td><td><b>50</b></td></tr>
+      <tr><td>1 · 5 · 6 et 2 · 4 · 6</td><td>2 × 6 × 6</td><td><b>72</b></td></tr>
+    </table>
+    <p class="petit">1 · 2 · 3 est aussi une Velute, mais c'est d'abord une Suite : on applique la Suite, sans les points de Velute.</p>
 
-    <h3>La Grelottine</h3>
-    <p>Le joueur qui fait un Néant reçoit une Grelottine (une seule à la fois). Juste avant le tour d'un adversaire, il peut l'utiliser pour le <b>défier</b> sur une combinaison et miser des points. Si le défié la réussit, il prend la mise au grelottin ; sinon, le grelottin la lui prend. Mise maximale, en pourcentage du plus petit des deux scores (5 pts au minimum) : Chouette 33 %, Velute 25 %, Cul de Chouette 16 %.</p>
+    <h4>Chouette-Velute : une paire dont la somme fait le troisième dé</h4>
+    <p>Il n'en existe que trois. <b>Personne ne marque d'office</b> : tous les joueurs crient (voir <a href="#r-reflexes">Cris</a>), et le premier empoche les points de la Velute.</p>
+    <table class="bareme">
+      <tr><th>Dés</th><td>1 · 1 · 2</td><td>2 · 2 · 4</td><td>3 · 3 · 6</td></tr>
+      <tr><th>Points</th><td>8</td><td>32</td><td>72</td></tr>
+    </table>
 
-    <h3>Le Civet</h3>
-    <p>Une fois par partie, avant de lancer, un joueur peut annoncer un <b>Civet</b> : il parie jusqu'à <b>102 pts</b> sur la combinaison qu'il va obtenir. Juste : il gagne la mise. Faux : il la perd.</p>
+    <h4>Cul de Chouette : trois dés identiques</h4>
+    <p>Le lanceur marque <b>40 + 10 × la valeur</b>.</p>
+    <table class="bareme">
+      <tr><th>Triple</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr>
+      <tr><th>Points</th><td>50</td><td>60</td><td>70</td><td>80</td><td>90</td><td>100</td></tr>
+    </table>
 
-    <h3>La Bévue</h3>
-    <p>Pousser le mauvais cri (« Pas mou le caillou » sur une Suite, ou l'inverse) est une Bévue : <b>−10 pts</b>.</p>
+    <h4>Suite : trois dés qui se suivent</h4>
+    <p>1 · 2 · 3, 2 · 3 · 4, 3 · 4 · 5 ou 4 · 5 · 6. Personne ne gagne de points : tous les joueurs crient, et le dernier <b>perd 10 pts</b> (voir <a href="#r-reflexes">Cris</a>).</p>
 
-    <h3>Le dé hors du tapis</h3>
-    <p>Un dé qui sort du tapis est aussi une Bévue : <b>−10 pts</b> pour le lanceur, et on relance. Dans le jeu, une jauge règle la force du lancer : arrêtez-la dans la zone verte. Trop mou, le dé roule hors du tapis ; trop fort, il s'envole hors de la table. La jauge peut être désactivée dans « Nouvelle partie ».</p>
+    <h4>Néant : aucune combinaison</h4>
+    <p>Pas de points, mais le lanceur reçoit une <b>Grelottine</b>, s'il n'en a pas déjà une.</p>
 
-    <p class="note"><i>Les règles du Cul de Chouette varient beaucoup d'une table à l'autre. Celles-ci sont une version cohérente et jouable des conventions de fans les plus courantes.</i></p>
+    <h3 id="r-reflexes">4. Les cris</h3>
+    <table>
+      <tr><th>Lancer</th><th>Geste et cri</th><th>Résultat</th></tr>
+      <tr><td><b>Suite</b></td><td>Frapper la table du poing : <i>« Grelotte ça picote ! »</i></td><td>Le <b>dernier</b> à crier, ou celui qui ne crie pas, perd <b>10 pts</b>. Si plusieurs joueurs ne crient pas, chacun perd 10 pts.</td></tr>
+      <tr><td><b>Chouette-Velute</b></td><td>Se taper les genoux : <i>« Pas mou le caillou ! »</i></td><td>Le <b>premier</b> à crier marque les points de la Velute (8, 32 ou 72), <b>même si ce n'est pas son lancer</b>. Si personne ne crie juste, les points sont perdus.</td></tr>
+    </table>
+    <ul>
+      <li>Tout le monde crie, <b>lanceur compris</b>.</li>
+      <li>Pousser le mauvais cri est une <a href="#r-bevue">Bévue</a> : −10 pts. Sur une Suite, ce joueur n'est alors pas compté comme « dernier ».</li>
+      <li><b>À la table</b>, si deux joueurs crient exactement en même temps sur une Chouette-Velute, aucun ne marque.</li>
+    </ul>
+
+    <h3 id="r-sirotage">5. Le Sirotage (sur une Chouette)</h3>
+    <ol class="etapes">
+      <li>Au lieu de marquer sa Chouette, le lanceur annonce qu'il <b>sirote</b>.</li>
+      <li>Chaque adversaire peut <b>parier</b> sur le résultat en criant un oiseau, avant la relance :<br>
+        1 Linotte · 2 Alouette · 3 Fauvette · 4 Mouette · 5 Bergeronnette · 6 Chouette.</li>
+      <li>Le lanceur relance <b>le seul dé qui n'est pas dans la paire</b>.</li>
+      <li><b>Il tombe sur la valeur de la paire</b> : c'est un Cul de Chouette, le lanceur marque 50 à 100 pts (et pas la Chouette).<br>
+        <b>Sinon</b> : le lanceur <b>perd</b> les points de sa Chouette (le carré de la paire). Le nouveau dé ne forme pas d'autre combinaison.</li>
+      <li>Chaque adversaire dont l'oiseau correspond au dé relancé marque <b>+25 pts</b>, que le sirotage soit réussi ou non.</li>
+    </ol>
+    <p class="petit">Le calcul : une chance sur 6 de réussir. En moyenne, siroter ne rapporte plus que garder que pour une paire de 1 ou de 2 ; au-delà, mieux vaut garder.</p>
+
+    <h3 id="r-grelottine">6. La Grelottine (défi)</h3>
+    <ul>
+      <li>On la reçoit en faisant un <b>Néant</b>. On ne peut en avoir <b>qu'une</b> à la fois, et elle ne sert qu'une fois.</li>
+      <li>Juste avant le lancer d'un adversaire, son détenteur crie <i>« Grelottine ! »</i>, choisit une combinaison (Chouette, Velute ou Cul de Chouette) et une mise.</li>
+      <li><b>Mise maximale</b> = le plus petit des deux scores (celui du grelottin et celui du défié, compté 0 s'il est négatif) × le pourcentage ci-dessous, arrondi à l'entier inférieur, et <b>au moins 5</b>.</li>
+    </ul>
+    <table>
+      <tr><th>Défi sur</th><th>Plafond</th><th>Réussi si le lancer est…</th></tr>
+      <tr><td>Chouette</td><td>33 %</td><td>une Chouette ou une Chouette-Velute</td></tr>
+      <tr><td>Velute</td><td>25 %</td><td>une Velute ou une Chouette-Velute</td></tr>
+      <tr><td>Cul de Chouette</td><td>16 %</td><td>un Cul de Chouette</td></tr>
+    </table>
+    <p><b>Combinaison réussie</b> : le défié prend la mise au grelottin (défié +mise, grelottin −mise). <b>Ratée</b> : le grelottin la prend au défié. On juge le lancer d'origine, avant un éventuel sirotage. Les points de la combinaison elle-même sont comptés normalement en plus.</p>
+
+    <h3 id="r-civet">7. Le Civet</h3>
+    <ul>
+      <li>Une seule fois par partie, avant de lancer, le lanceur annonce <i>« Civet ! »</i>, une combinaison et une mise de <b>1 à 102 pts</b>.</li>
+      <li>Combinaisons possibles : Chouette (une Chouette-Velute compte), Velute (une Chouette-Velute compte), Suite, Cul de Chouette, Néant.</li>
+      <li>Si le lancer correspond : <b>+mise</b>. Sinon : <b>−mise</b>. Les points de la combinaison sont comptés normalement en plus.</li>
+    </ul>
+
+    <h3 id="r-bevue">8. La Bévue : −10 pts</h3>
+    <ul>
+      <li>Pousser le mauvais cri : « Pas mou le caillou » sur une Suite, ou « Grelotte ça picote » sur une Chouette-Velute.</li>
+      <li>Faire sortir un dé du tapis : le lanceur relance alors ses trois dés. Dans le jeu, c'est la jauge de lancer qui décide (désactivable dans « Nouvelle partie »).</li>
+      <li><b>À la table</b>, les fans comptent souvent aussi : une erreur de calcul dans son propre score, l'annonce d'une combinaison qui n'existe pas, toucher les dés d'un autre joueur.</li>
+    </ul>
+
+    <h3 id="r-343">9. Atteindre 343</h3>
+    <ul>
+      <li><b>Avec la règle des « 343 pile »</b> (par défaut dans le jeu) : il faut tomber exactement sur 343. Les points en trop font reculer d'autant :<br>
+        <b>nouveau score = 343 − (score + gain − 343)</b>. Exemple : 335 + 16 = 351, soit 8 de trop : retour à 335.</li>
+      <li><b>Sans cette règle</b> : le premier à 343 ou plus gagne.</li>
+      <li>On vérifie à la <b>fin de chaque tour</b>. Un joueur qui atteint 343 pendant le tour d'un autre (par exemple en gagnant une Chouette-Velute) gagne aussi. Si plusieurs joueurs y sont, le lanceur passe en premier.</li>
+    </ul>
+
+    <h3 id="r-exemples">10. Exemples, comme sur la feuille de marque</h3>
+    <div class="exemple"><b>Chouette.</b> Arthur (120) lance 3 · 3 · 5 : Chouette de 3, il la garde. <b>+9 → 129</b>.</div>
+    <div class="exemple"><b>Sirotage raté et oiseau.</b> Karadoc (80) lance 2 · 2 · 6 : Chouette de 2, il sirote. Perceval crie « Bergeronnette » (5). Karadoc relance le 6, qui fait 5 : raté. <b>Karadoc −4 → 76</b>, <b>Perceval +25</b>.</div>
+    <div class="exemple"><b>Chouette-Velute.</b> Arthur lance 2 · 2 · 4. Perceval crie le premier : <b>Perceval +32</b>. Arthur ne marque rien.</div>
+    <div class="exemple"><b>Grelottine.</b> Perceval (150) défie Karadoc (90) sur une Velute. Mise maximale : 90 × 25 % = 22,5, arrondi à <b>22</b>. Karadoc lance 4 · 4 · 2 : Chouette de 4, mais pas de Velute. <b>Karadoc +16 − 22 → 84</b>, <b>Perceval +22 → 172</b>.</div>
+    <div class="exemple"><b>343 pile.</b> Arthur (335) lance 2 · 3 · 5 : Velute, +50. Il arrive à 385, soit 42 de trop : <b>retour à 301</b>.</div>
+
+    <h3 id="r-tous">11. Les 56 lancers possibles</h3>
+    <details>
+      <summary>Afficher le tableau de tous les lancers et de leurs points</summary>
+      <table class="tous-lancers" id="table-lancers"></table>
+    </details>
+
+    <p class="note"><i>Les règles du Cul de Chouette varient d'une table à l'autre. Celles-ci sont une version cohérente et jouable des conventions de fans les plus courantes ; ce sont exactement celles que le jeu applique.</i></p>
     <div class="pied"><button id="btn-fermer-regles">Fermer</button></div>
   </div>
 </div>
@@ -176,6 +281,9 @@
           <h3>Créer une partie</h3>
           <p>Vous recevez un code à envoyer à votre ami.</p>
           <label class="case"><input type="checkbox" id="ligne-pile" checked> <span>343 pile</span></label>
+          <p>Ajouter des PC (facultatif, 2 au plus) :</p>
+          <div class="choix-pcs" id="ligne-pcs"></div>
+          <p class="petit" id="ligne-pcs-resume"></p>
           <button class="vert" id="btn-creer">Créer</button>
         </div>
         <div class="carte-choix">
@@ -269,6 +377,7 @@
     <div class="reflexe-texte" id="reflexe-explication" hidden></div>
     <div class="decompte" id="reflexe-decompte" hidden></div>
     <div class="cris" id="reflexe-cris"></div>
+    <div class="reflexe-autres" id="reflexe-autres" aria-live="polite"></div>
     <div class="reflexe-texte resultat" id="reflexe-resultat" hidden></div>
     <div class="pied centre" id="reflexe-pied"></div>
   </div>

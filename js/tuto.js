@@ -95,20 +95,21 @@ const secondes = ms => (ms / 1000).toFixed(2).replace(".", ",") + " s";
 const ASTUCE_CRIS = "**Pour reconnaître le bon cri :** trois dés qui se suivent → « Grelotte ça picote ! » ; " +
   "une paire dont la somme fait le troisième dé → « Pas mou le caillou ! ».";
 
-// Explication complète, montrée avant le premier réflexe de chaque type
-// autre : l'adversaire ; min et max : son temps de réaction s'il s'agit de l'ordinateur
-function explicationReflexe(combi, des, lanceur, autre, min, max) {
+// Explication complète, montrée avant le premier réflexe de chaque type.
+// ordis : { nom, min, max } pour chaque ordinateur ; distants : les joueurs en ligne
+function explicationReflexe(combi, des, lanceur, ordis, distants) {
   const [a, b, c] = [...des].sort((x, y) => x - y);
-  const rythme = min !== null
-    ? `${autre.nom} crie au bout de ${secondes(min)} à ${secondes(max)}.`
-    : `${autre.nom} voit les mêmes dés sur son appareil : le plus rapide l'emporte.`;
+  const rythme = [
+    ...ordis.map(o => `${o.nom} crie au bout de ${secondes(o.min)} à ${secondes(o.max)}.`),
+    ...distants.map(d => `${d.nom} voit les mêmes dés sur son appareil.`)
+  ].join(" ");
   const deroulement = "**Comment ça se passe :** cliquez sur « Je suis prêt ». Après le compte à rebours 3, 2, 1, " +
     `les deux cris apparaissent dans un ordre au hasard : cliquez vite le bon. ${rythme}`;
   if (combi === "suite") {
     return [
       `**Pourquoi ?** ${a} · ${b} · ${c} : les trois dés se suivent, c'est une **Suite**.`,
       `**Que faire ?** Tout le monde, lanceur compris, frappe la table en criant **« ${GRELOTTE} »**.`,
-      `**L'enjeu :** le **dernier** à crier perd **10 pts**. Criez avant ${autre.nom} et c'est ${autre.nom} qui les perd.`,
+      "**L'enjeu :** le **dernier** à crier perd **10 pts**. Il suffit de ne pas être le plus lent.",
       `**Le piège :** l'autre bouton, « ${PAS_MOU} », est le cri de la Chouette-Velute. Se tromper de cri est une **Bévue** : −10 pts.`,
       deroulement
     ].join("\n\n");
@@ -116,12 +117,12 @@ function explicationReflexe(combi, des, lanceur, autre, min, max) {
   const pts = points(des, combi);
   const chez = !estLocal(lanceur)
     ? `C'est le lancer ${/^[aeiouyhàâéèêîôû]/i.test(lanceur.nom) ? "d'" : "de "}${lanceur.nom}, mais peu importe : le premier qui crie prend les points. Volez-les !`
-    : `C'est votre lancer, mais si ${autre.nom} crie avant vous, c'est ${autre.nom} qui prend les points !`;
+    : "C'est votre lancer, mais si un adversaire crie avant vous, c'est cet adversaire qui prend les points !";
   return [
     `**Pourquoi ?** ${a} · ${b} · ${c} : une paire de ${a} (Chouette) et ${a} + ${b} = ${c} (Velute). C'est une **Chouette-Velute**.`,
     `**Que faire ?** Se taper les genoux en criant **« ${PAS_MOU} »**.`,
     `**L'enjeu :** le **premier** à crier gagne la Velute : 2 × ${c} × ${c} = **${pts} pts**. ${chez}`,
-    `**Le piège :** « ${GRELOTTE} » est le cri de la Suite. Se tromper est une **Bévue** : −10 pts, et ${autre.nom} empoche les ${pts} pts.`,
+    `**Le piège :** « ${GRELOTTE} » est le cri de la Suite. Se tromper est une **Bévue** : −10 pts, et le plus rapide de vos adversaires empoche les ${pts} pts.`,
     deroulement
   ].join("\n\n");
 }
@@ -133,13 +134,12 @@ function rappelReflexe(combi, des) {
     : `Une paire + sa somme → **« ${PAS_MOU} »**. Le premier gagne ${points(des, combi)} pts.`;
 }
 
-// Bilan du duel, toujours affiché, du point de vue du joueur m (rs : cris des deux joueurs, bilan : bilanReflexe)
+// Bilan du duel, toujours affiché, du point de vue du joueur m (rs : cri de chaque joueur, bilan : bilanReflexe)
 function resultatReflexe(combi, des, rs, m, bilan) {
   const attendu = combi === "suite" ? GRELOTTE : PAS_MOU;
   const pts = points(des, combi);
-  const autre = P.joueurs[1 - m];
   const rM = rs[m];
-  const rA = rs[1 - m];
+  const autres = rs.map((_, i) => i).filter(i => i !== m);
   const lignes = [];
 
   if (rM.res === "juste") lignes.push(`Vous avez crié « ${attendu} » en **${secondes(rM.ms)}**.`);
@@ -148,18 +148,24 @@ function resultatReflexe(combi, des, rs, m, bilan) {
     lignes.push(`Vous avez crié « ${rM.cri} », mais c'est ${autreCombi}. Sur une ${NOMS[combi]}, il fallait **« ${attendu} »** : **−10 pts** de Bévue.`);
   } else lignes.push("Vous n'avez pas crié à temps.");
 
-  if (rA.res === "juste") lignes.push(`${autre.nom} a crié en ${secondes(rA.ms)}.`);
-  else if (rA.res === "faux") lignes.push(`${autre.nom} a poussé le mauvais cri : **−10 pts** de Bévue.`);
-  else lignes.push(`${autre.nom} n'a pas crié à temps.`);
+  // Les adversaires, du plus rapide au plus lent
+  const temps = i => rs[i].res === "juste" ? rs[i].ms : Infinity;
+  for (const i of [...autres].sort((x, y) => temps(x) - temps(y))) {
+    const nom = P.joueurs[i].nom;
+    if (rs[i].res === "juste") lignes.push(`${nom} a crié en ${secondes(rs[i].ms)}.`);
+    else if (rs[i].res === "faux") lignes.push(`${nom} a poussé le mauvais cri : **−10 pts** de Bévue.`);
+    else lignes.push(`${nom} n'a pas crié à temps.`);
+  }
 
   if (combi === "suite") {
-    const moiDernier = bilan.derniers.includes(m);
-    const autreDernier = bilan.derniers.includes(1 - m);
-    if (moiDernier && autreDernier) lignes.push("Personne n'a crié : **−10 pts** chacun.");
-    else if (moiDernier) lignes.push("Vous criez en dernier : **−10 pts**.");
-    else if (autreDernier) lignes.push(`${autre.nom} crie en dernier : **−10 pts** pour ${autre.nom}.`);
+    const derniers = bilan.derniers;
+    const autresDerniers = derniers.filter(i => i !== m).map(i => P.joueurs[i].nom);
+    if (derniers.includes(m) && autresDerniers.length) lignes.push(`Vous et ${enumerer(autresDerniers)} criez en dernier : **−10 pts** chacun.`);
+    else if (derniers.includes(m)) lignes.push("Vous criez en dernier : **−10 pts**.");
+    else if (autresDerniers.length > 1) lignes.push(`${enumerer(autresDerniers)} crient en dernier : **−10 pts** chacun.`);
+    else if (autresDerniers.length) lignes.push(`${autresDerniers[0]} crie en dernier : **−10 pts** pour ${autresDerniers[0]}.`);
   } else if (bilan.gagnant === m) lignes.push(`Vous gagnez les **${pts} pts** de la Velute !`);
-  else if (bilan.gagnant !== null) lignes.push(`${autre.nom} gagne les **${pts} pts** de la Velute.`);
+  else if (bilan.gagnant !== null) lignes.push(`${P.joueurs[bilan.gagnant].nom} gagne les **${pts} pts** de la Velute.`);
   else lignes.push("Personne n'a poussé le bon cri : les points de la Velute sont perdus.");
 
   if (regles.conseils && rM.res === "faux") lignes.push("\n" + ASTUCE_CRIS);

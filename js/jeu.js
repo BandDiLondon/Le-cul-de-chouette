@@ -12,12 +12,14 @@ const CHANCES = { chouette: 90, velute: 39, suite: 24, cul: 6, neant: 66 };
 const PLAFOND_DEFI = { chouette: 0.33, velute: 0.25, cul: 0.16 };
 const MISE_CIVET = 102;
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+// reflexe : temps de réaction (ms) ; rateJauge : part des lancers ratés ; bevue : part des mauvais cris ;
 // portrait : image carrée dans images/ (null = médaillon avec l'initiale)
 const ADVERSAIRES = {
-  karadoc:  { nom: "Karadoc",  reflexe: [1300, 2400], style: "hasard", portrait: "images/karadoc.jpg" },
-  arthur:   { nom: "Arthur",   reflexe: [850, 1600],  style: "calcul", portrait: "images/arthur.jpg" },
-  perceval: { nom: "Perceval", reflexe: [550, 1050],  style: "calcul", portrait: "images/perceval.jpg" }
+  karadoc:  { nom: "Karadoc",  reflexe: [1300, 2400], style: "hasard", rateJauge: 0.18, bevue: 0.08, portrait: "images/karadoc.jpg" },
+  arthur:   { nom: "Arthur",   reflexe: [850, 1600],  style: "calcul", rateJauge: 0.07, bevue: 0.03, portrait: "images/arthur.jpg" },
+  perceval: { nom: "Perceval", reflexe: [550, 1050],  style: "calcul", rateJauge: 0.02, bevue: 0,    portrait: "images/perceval.jpg" }
 };
+const MAX_JOUEURS = 4;
 
 // Portraits que les joueurs peuvent choisir pour eux-mêmes (images/joueurs/<id>.jpg)
 const PORTRAITS = [
@@ -67,7 +69,17 @@ function generateur(graine) {
 // Un joueur « local » joue sur cet appareil ; sinon c'est l'ordinateur ou un joueur en ligne
 const estLocal = j => !j.ia && !j.distant;
 const hasard = (min, max) => min + Math.random() * (max - min);
-const auHasard = liste => liste[Math.floor(Math.random() * liste.length)];
+
+// Hasard des décisions de l'ordinateur. En ligne, les ordinateurs jouent sur les deux appareils à la fois :
+// leur hasard vient donc lui aussi de la graine commune, pour qu'ils y prennent exactement les mêmes décisions
+const aleaIA = () => P.aleaIA();
+const hasardIA = (min, max) => min + aleaIA() * (max - min);
+const choixIA = liste => liste[Math.floor(aleaIA() * liste.length)];
+
+// Les autres joueurs, dans l'ordre du jeu à partir de celui qui suit le joueur i
+const autresQue = i => P.joueurs.map((_, k) => P.joueurs[(i + 1 + k) % P.joueurs.length]).slice(0, -1);
+// « Arthur », « Arthur et Karadoc », « Arthur, Karadoc et Perceval »
+const enumerer = noms => noms.length < 2 ? noms.join("") : noms.slice(0, -1).join(", ") + " et " + noms[noms.length - 1];
 const pct = n => Math.round(n / 216 * 100) + " %";
 const signe = n => (n >= 0 ? "+" : "−") + Math.abs(n);
 
@@ -154,16 +166,36 @@ let reglages = chargerReglages();
 // Règles de la partie en cours : celles des réglages, ou celles imposées par le tutoriel
 let regles = { ...reglages };
 
+// advs : adversaires ordinateur en solo (1 à 3) ; pcsEnLigne : ordinateurs ajoutés à une partie en ligne (0 à 2)
 function chargerReglages() {
-  const defaut = { nom: "Vous", adv: "arthur", pile: true, aide: true, conseils: false, portrait: "", jauge: true };
-  try { return { ...defaut, ...JSON.parse(localStorage.getItem("cdc-reglages") || "{}") }; }
-  catch { return defaut; }
+  const defaut = { nom: "Vous", advs: ["arthur"], pcsEnLigne: [], pile: true, aide: true, conseils: false, portrait: "", jauge: true };
+  let brut = {};
+  try { brut = JSON.parse(localStorage.getItem("cdc-reglages") || "{}"); } catch {}
+  const r = { ...defaut, ...brut };
+  // Anciens réglages : un seul adversaire, dans « adv »
+  if (brut.adv && !brut.advs) r.advs = [brut.adv];
+  delete r.adv;
+  r.advs = (r.advs || []).filter(c => ADVERSAIRES[c]).slice(0, MAX_JOUEURS - 1);
+  if (!r.advs.length) r.advs = ["arthur"];
+  r.pcsEnLigne = (r.pcsEnLigne || []).filter(c => ADVERSAIRES[c]).slice(0, MAX_JOUEURS - 2);
+  return r;
 }
 function sauverReglages() {
   try { localStorage.setItem("cdc-reglages", JSON.stringify(reglages)); } catch {}
 }
 
 const nouveauJoueur = (nom, plus = {}) => ({ nom, score: 0, grelottine: false, civet: true, ia: false, distant: false, ...plus });
+const joueurIA = cle => nouveauJoueur(ADVERSAIRES[cle].nom, { ia: true, profil: ADVERSAIRES[cle], portrait: ADVERSAIRES[cle].portrait });
+
+// Deux joueurs du même nom deviennent « Arthur » et « Arthur 2 »
+function nomsUniques(joueurs) {
+  const vus = {};
+  for (const j of joueurs) {
+    vus[j.nom] = (vus[j.nom] || 0) + 1;
+    if (vus[j.nom] > 1) j.nom += " " + vus[j.nom];
+  }
+  return joueurs;
+}
 
 // manche : { graine, premier } pour une partie en ligne, null sinon
 function nouvellePartie(tuto = false, manche = null) {
@@ -176,25 +208,27 @@ function nouvellePartie(tuto = false, manche = null) {
   let joueurs, moi = 0, intro;
   if (manche) {
     regles = { ...reglages, pile: enLigne.pile, jauge: enLigne.jauge };
-    // Les deux appareils rangent les joueurs dans le même ordre : l'hôte d'abord
+    // Les deux appareils rangent les joueurs dans le même ordre : l'hôte, l'invité, puis les ordinateurs
     const noms = enLigne.hote ? [enLigne.nomMoi, enLigne.nomAutre] : [enLigne.nomAutre, enLigne.nomMoi];
-    if (noms[0] === noms[1]) noms[1] += " 2";
     const portraits = enLigne.hote ? [enLigne.portraitMoi, enLigne.portraitAutre] : [enLigne.portraitAutre, enLigne.portraitMoi];
     moi = enLigne.hote ? 0 : 1;
     joueurs = noms.map((nom, i) => nouveauJoueur(nom, { distant: i !== moi, portrait: imagePortrait(portraits[i]) }));
-    intro = `Partie en ligne contre ${noms[1 - moi]}.`;
+    joueurs.push(...enLigne.pcs.map(joueurIA));
+    intro = `Partie en ligne contre ${enumerer(joueurs.filter((_, i) => i !== moi).map(j => j.nom))}.`;
   } else {
-    regles = tuto ? { ...reglages, adv: "arthur", pile: true, aide: true, conseils: true } : { ...reglages };
-    const profil = ADVERSAIRES[regles.adv];
-    joueurs = [nouveauJoueur(regles.nom.trim() || "Vous", { portrait: imagePortrait(regles.portrait) }), nouveauJoueur(profil.nom, { ia: true, profil, portrait: profil.portrait })];
-    intro = tuto ? `Tutoriel contre ${profil.nom}.` : `Partie contre ${profil.nom}.`;
+    regles = tuto ? { ...reglages, advs: ["arthur"], pile: true, aide: true, conseils: true } : { ...reglages };
+    joueurs = [nouveauJoueur(regles.nom.trim() || "Vous", { portrait: imagePortrait(regles.portrait) }), ...regles.advs.map(joueurIA)];
+    const noms = enumerer(joueurs.slice(1).map(j => j.nom));
+    intro = tuto ? `Tutoriel contre ${noms}.` : `Partie contre ${noms}.`;
   }
+  nomsUniques(joueurs);
   const premier = manche ? manche.premier : 0;
   P = {
     joueurs,
     moi,
     enLigne: !!manche,
     alea: manche ? generateur(manche.graine) : Math.random,
+    aleaIA: manche ? generateur(manche.graine ^ 0x5bd1e995) : Math.random,
     courant: premier,
     premier,
     tour: 1,
@@ -207,8 +241,31 @@ function nouvellePartie(tuto = false, manche = null) {
   elDes.forEach(el => { dessinerDe(el, 0); el.classList.remove("surligne"); });
   $("combinaison").innerHTML = "&nbsp;";
   log(`${intro} ${regles.pile ? "Il faut tomber sur 343 pile." : "Le premier à 343 gagne."}`, "info");
+  construireCartes();
   majScores();
   boucle().catch(e => { if (e !== ABANDON) throw e; });
+}
+
+// Une carte par joueur ; à partir de 3 joueurs, les cartes deviennent plus compactes
+function construireCartes() {
+  const zone = $("scores");
+  zone.innerHTML = "";
+  zone.style.setProperty("--joueurs", P.joueurs.length);
+  zone.classList.toggle("compact", P.joueurs.length > 2);
+  P.joueurs.forEach((_, i) => {
+    const carte = document.createElement("div");
+    carte.className = "joueur";
+    carte.id = "carte-" + i;
+    carte.innerHTML =
+      `<div class="entete"><div class="identite">` +
+      `<div class="nom" id="nom-${i}"></div>` +
+      `<div class="score"><span id="score-${i}">0</span> <small>/ 343</small></div>` +
+      `</div></div>` +
+      `<div class="barre"><div id="barre-${i}"></div></div>` +
+      `<div class="badges" id="badges-${i}"></div>` +
+      `<div class="portrait carre" id="portrait-${i}"></div>`;
+    zone.appendChild(carte);
+  });
 }
 
 function majScores() {
@@ -225,15 +282,21 @@ function majScores() {
     $("carte-" + i).classList.toggle("actif", i === P.courant);
     const badges = $("badges-" + i);
     badges.innerHTML = "";
-    const g = document.createElement("span");
-    g.className = "badge" + (j.grelottine ? "" : " off");
-    g.textContent = "🔔 Grelottine";
-    g.title = j.grelottine ? "Peut défier l'adversaire avant son tour" : "Gagnée en faisant un Néant";
-    const c = document.createElement("span");
-    c.className = "badge" + (j.civet ? "" : " off");
-    c.textContent = "🐇 Civet";
-    c.title = j.civet ? "Pari disponible une fois par partie" : "Civet déjà utilisé";
-    badges.append(g, c);
+    // Le texte du badge est masqué quand les cartes sont compactes : l'icône et l'infobulle suffisent
+    const badge = (icone, texte, actif, titre) => {
+      const b = document.createElement("span");
+      b.className = "badge" + (actif ? "" : " off");
+      b.title = titre;
+      const t = document.createElement("span");
+      t.className = "badge-texte";
+      t.textContent = " " + texte;
+      b.append(icone, t);
+      return b;
+    };
+    badges.append(
+      badge("🔔", "Grelottine", j.grelottine, j.grelottine ? "Grelottine : peut défier un adversaire avant son tour" : "Grelottine : gagnée en faisant un Néant"),
+      badge("🐇", "Civet", j.civet, j.civet ? "Civet : pari disponible une fois par partie" : "Civet déjà utilisé")
+    );
   });
 }
 
@@ -498,9 +561,8 @@ function jaugeLancer() {
 
 // L'ordinateur rate plus ou moins souvent selon son caractère
 function jaugeIA(j) {
-  const rate = { karadoc: 0.18, arthur: 0.07, perceval: 0.02 }[regles.adv] ?? 0.07;
-  if (Math.random() < rate) return Math.random() < 0.5 ? { tir: "court", force: 0.1 } : { tir: "long", force: 0.9 };
-  return { tir: "ok", force: hasard(ZONE_VERTE[0], ZONE_VERTE[1]) };
+  if (aleaIA() < j.profil.rateJauge) return aleaIA() < 0.5 ? { tir: "court", force: 0.1 } : { tir: "long", force: 0.9 };
+  return { tir: "ok", force: hasardIA(ZONE_VERTE[0], ZONE_VERTE[1]) };
 }
 
 // Un lancer raté : un dé roule hors du tapis (trop mou) ou s'envole hors de la table (trop fort).
@@ -535,10 +597,11 @@ async function horsDuTapis(j, tir) {
 }
 
 // ---------- Réflexes ----------
-let minuteurReflexe = null;
+let minuteursReflexe = [];
 
 function fermerReflexe() {
-  clearTimeout(minuteurReflexe);
+  minuteursReflexe.forEach(clearTimeout);
+  minuteursReflexe = [];
   $("fen-reflexe").classList.remove("ouvert");
 }
 
@@ -584,21 +647,33 @@ function bilanReflexe(combi, rs) {
 }
 
 // Trois phases dans la même fenêtre : préparation (première fois, avec conseils), duel, résultat.
-// Chaque appareil chronomètre son propre joueur ; en ligne, les deux temps sont échangés puis comparés.
+// Chaque appareil chronomètre son propre joueur ; le cri de chaque ordinateur est tiré à l'avance,
+// et en ligne les temps des humains sont échangés avant d'être comparés.
 // Renvoie { rs, bilan } : rs[i] est le cri du joueur i
 async function reflexe(combi, des, lanceur) {
   const attendu = combi === "suite" ? GRELOTTE : PAS_MOU;
+  const mauvais = attendu === GRELOTTE ? PAS_MOU : GRELOTTE;
   const moi = P.moi;
-  const autre = P.joueurs[1 - moi];
-  let min = null, max = null, delaiIA = null;
-  if (autre.ia) {
-    // Les deux premiers réflexes du tutoriel laissent plus de temps pour apprendre
-    const lent = P.tuto && P.tour <= 2 ? 1.8 : 1;
-    [min, max] = autre.profil.reflexe.map(x => x * lent);
-    delaiIA = hasard(min, max);
-  }
+  const rs = [];
+  // Les deux premiers réflexes du tutoriel laissent plus de temps pour apprendre
+  const lent = P.tuto && P.tour <= 2 ? 1.8 : 1;
+  const ordis = [];
+  P.joueurs.forEach((j, i) => {
+    if (!j.ia) return;
+    const [min, max] = j.profil.reflexe.map(x => x * lent);
+    const ms = hasardIA(min, max);
+    const faux = aleaIA() < j.profil.bevue;
+    rs[i] = { res: faux ? "faux" : "juste", ms, cri: faux ? mauvais : attendu };
+    ordis.push({ nom: j.nom, ms, min, max, faux });
+  });
+  const distants = P.joueurs.map((j, i) => i).filter(i => P.joueurs[i].distant);
   // En ligne, les cris apparaissent après le même délai aléatoire sur les deux appareils : impossible de cliquer d'avance
   const attenteCris = P.enLigne ? 500 + P.alea() * 1200 : 0;
+  // Sans joueur en ligne, le duel s'arrête dès que l'issue est jouée : sur une Chouette-Velute, au premier bon cri
+  // d'un ordinateur ; sur une Suite, quand le dernier ordinateur a crié
+  let limite = 5000;
+  const justes = ordis.filter(o => !o.faux).map(o => o.ms);
+  if (!distants.length && justes.length) limite = combi === "suite" ? Math.max(...justes) : Math.min(...justes);
   const premiere = regles.conseils && !P.vus.has("reflexe-" + combi);
 
   $("reflexe-titre").textContent = premiere ? "Préparez-vous !" : "RÉFLEXE !";
@@ -612,6 +687,7 @@ async function reflexe(combi, des, lanceur) {
     zoneDes.appendChild(d);
   });
   $("reflexe-cris").innerHTML = "";
+  $("reflexe-autres").innerHTML = "";
   $("reflexe-pied").innerHTML = "";
   $("reflexe-decompte").hidden = true;
   texteReflexe("reflexe-resultat", "");
@@ -619,7 +695,7 @@ async function reflexe(combi, des, lanceur) {
 
   if (premiere) {
     P.vus.add("reflexe-" + combi);
-    texteReflexe("reflexe-explication", explicationReflexe(combi, des, lanceur, autre, min, max));
+    texteReflexe("reflexe-explication", explicationReflexe(combi, des, lanceur, ordis, distants.map(i => P.joueurs[i])));
     await boutonReflexe("Je suis prêt !", "vert");
     texteReflexe("reflexe-explication", "");
     const decompte = $("reflexe-decompte");
@@ -637,16 +713,13 @@ async function reflexe(combi, des, lanceur) {
     Sons.jouer("go");
   }
 
-  const rMoi = await duel(attendu, delaiIA);
-  const rs = [];
+  const rMoi = await duel(attendu, limite, ordis);
   rs[moi] = rMoi;
-  if (autre.ia) {
-    rs[1 - moi] = { res: "juste", ms: delaiIA, cri: attendu };
-  } else {
+  if (distants.length) {
     Reseau.envoyer("cri", rMoi);
     $("reflexe-titre").textContent = "…";
-    texteReflexe("reflexe-explication", `En attente du cri de ${autre.nom}…`);
-    rs[1 - moi] = await garde(Reseau.recevoir("cri"));
+    texteReflexe("reflexe-explication", `En attente du cri de ${enumerer(distants.map(i => P.joueurs[i].nom))}…`);
+    for (const i of distants) rs[i] = await garde(Reseau.recevoir("cri"));
   }
   const bilan = bilanReflexe(combi, rs);
 
@@ -657,7 +730,7 @@ async function reflexe(combi, des, lanceur) {
   else if (rMoi.res === "faux") { Sons.jouer("bevue"); Sons.dire(rMoi.cri); }
   else {
     Sons.jouer("lent");
-    if (rs[1 - moi].res === "juste") { Sons.jouer(geste(attendu)); Sons.dire(attendu, true); }
+    if (rs.some((r, i) => i !== moi && r.res === "juste")) { Sons.jouer(geste(attendu)); Sons.dire(attendu, true); }
   }
 
   $("reflexe-titre").textContent = gagne ? "Bien joué !" : rMoi.res === "faux" ? "Bévue !" : "Trop lent !";
@@ -673,16 +746,19 @@ async function reflexe(combi, des, lanceur) {
   return { rs, bilan };
 }
 
-// Le duel se termine au clic, quand l'ordinateur crie, ou après 5 s en ligne
-function duel(attendu, delaiIA) {
+// Le duel se termine au clic, ou à la limite (issue jouée, ou 5 s en ligne).
+// Pendant ce temps, les cris des ordinateurs s'affichent au moment où ils les poussent
+function duel(attendu, limite, ordis) {
   return garde(new Promise(resoudre => {
     const cris = $("reflexe-cris");
+    const autres = $("reflexe-autres");
     const debut = performance.now();
     let fini = false;
     const terminer = r => {
       if (fini) return;
       fini = true;
-      clearTimeout(minuteurReflexe);
+      minuteursReflexe.forEach(clearTimeout);
+      minuteursReflexe = [];
       resoudre(r);
     };
     for (const cri of Math.random() < 0.5 ? [PAS_MOU, GRELOTTE] : [GRELOTTE, PAS_MOU]) {
@@ -692,7 +768,17 @@ function duel(attendu, delaiIA) {
       b.onclick = () => terminer({ res: cri === attendu ? "juste" : "faux", ms: performance.now() - debut, cri });
       cris.appendChild(b);
     }
-    minuteurReflexe = setTimeout(() => terminer({ res: "rien", ms: null, cri: null }), delaiIA ?? 5000);
+    for (const o of ordis) {
+      if (o.ms > limite) continue;
+      minuteursReflexe.push(setTimeout(() => {
+        const s = document.createElement("span");
+        s.className = "cri-autre" + (o.faux ? " faux" : "");
+        s.textContent = o.faux ? `❌ ${o.nom} se trompe !` : `🗣️ ${o.nom} !`;
+        autres.appendChild(s);
+        Sons.jouer(o.faux ? "bevue" : attendu === GRELOTTE ? "poing" : "genoux");
+      }, o.ms));
+    }
+    minuteursReflexe.push(setTimeout(() => terminer({ res: "rien", ms: null, cri: null }), limite));
   }));
 }
 
@@ -714,25 +800,27 @@ async function boucle() {
   if (P.tuto) await expliquer("intro");
   while (true) {
     const j = P.joueurs[P.courant];
-    const adv = P.joueurs[1 - P.courant];
     majScores();
     if (P.courant === P.premier) log(`Tour ${P.tour}`, "tour");
     $("banniere").textContent = estLocal(j) ? `À vous de jouer, ${j.nom}` : `Au tour de ${j.nom}`;
 
-    // 1. L'adversaire peut lancer un défi avec sa Grelottine
+    // 1. Un adversaire qui a une Grelottine peut défier le lanceur ; on les consulte dans l'ordre du jeu,
+    // et le premier qui défie prend la place : un seul défi par tour
     let defi = null;
-    if (adv.grelottine && estLocal(adv)) await expliquer("defi");
-    if (adv.grelottine) {
-      defi = await decider(adv, "defi", () => defiHumain(adv, j), () => defiIA(adv, j),
-        `${adv.nom} réfléchit à sa Grelottine…`);
+    for (const g of autresQue(P.courant)) {
+      if (!g.grelottine) continue;
+      if (estLocal(g)) await expliquer("defi");
+      const d = await decider(g, "defi", () => defiHumain(g, j), () => defiIA(g, j), `${g.nom} réfléchit à sa Grelottine…`);
+      if (d) { defi = { ...d, par: g }; break; }
     }
     if (defi) {
-      adv.grelottine = false;
+      const g = defi.par;
+      g.grelottine = false;
       majScores();
-      const defiQui = j.nom === "Vous" ? `${adv.nom} vous défie` : `${adv.nom} ${accorder(adv, "défiez", "défie")} ${j.nom}`;
+      const defiQui = j.nom === "Vous" ? `${g.nom} vous défie` : `${g.nom} ${accorder(g, "défiez", "défie")} ${j.nom}`;
       log(`🔔 « Grelottine ! » ${defiQui} sur une ${NOMS[defi.combi]} (mise : ${defi.mise}).`, "alerte");
       Sons.jouer("grelot");
-      Sons.dire("Grelottine !", !estLocal(adv));
+      Sons.dire("Grelottine !", !estLocal(g));
       if (estLocal(j)) await expliquer("defi-subi");
     }
 
@@ -780,7 +868,7 @@ async function boucle() {
     await pause(combi === "suite" || combi === "chouette-velute" ? 250 : 500);
     await expliquer(combi);
 
-    await resoudreCombinaison(j, adv, des, combi);
+    await resoudreCombinaison(j, des, combi);
 
     // 3. Paris du tour, jugés sur le lancer initial
     if (civet) {
@@ -791,10 +879,10 @@ async function boucle() {
       if (correspond(combi, defi.combi)) {
         log(`${j.nom} ${accorder(j, "relevez", "relève")} le défi !`, "info");
         ajouter(j, defi.mise, "défi relevé");
-        ajouter(adv, -defi.mise, "Grelottine perdue");
+        ajouter(defi.par, -defi.mise, "Grelottine perdue");
       } else {
         log(`${j.nom} ${accorder(j, "échouez", "échoue")} au défi.`, "info");
-        ajouter(adv, defi.mise, "Grelottine gagnée");
+        ajouter(defi.par, defi.mise, "Grelottine gagnée");
         ajouter(j, -defi.mise, "défi raté");
       }
     }
@@ -805,14 +893,14 @@ async function boucle() {
     if (g) return finDePartie(g);
     if (P.tuto && !P.script.length) await expliquer("fin");
 
-    P.courant = 1 - P.courant;
+    P.courant = (P.courant + 1) % P.joueurs.length;
     if (P.courant === P.premier) P.tour++;
     attente("…");
     await pause(900);
   }
 }
 
-async function resoudreCombinaison(j, adv, des, combi) {
+async function resoudreCombinaison(j, des, combi) {
   switch (combi) {
     case "neant":
       if (j.grelottine) log(`${j.nom} ${accorder(j, "avez", "a")} déjà une Grelottine.`, "info");
@@ -825,7 +913,7 @@ async function resoudreCombinaison(j, adv, des, combi) {
       break;
 
     case "chouette":
-      await sirotage(j, adv, des);
+      await sirotage(j, des);
       break;
 
     case "suite":
@@ -841,7 +929,7 @@ async function resoudreCombinaison(j, adv, des, combi) {
   }
 }
 
-async function sirotage(j, adv, des) {
+async function sirotage(j, des) {
   const v = valeurPaire(des);
   const pts = v * v;
   const gainCul = 40 + 10 * v;
@@ -852,7 +940,7 @@ async function sirotage(j, adv, des) {
       { label: `Garder (+${pts})`, val: false, classe: "second" },
       { label: `Siroter (+${gainCul} ou −${pts})`, val: true, classe: "" }
     ]);
-  }, () => siroterIA(j, adv, v), `${j.nom} hésite à siroter sa Chouette de ${v}…`);
+  }, () => siroterIA(j, v), `${j.nom} hésite à siroter sa Chouette de ${v}…`);
   if (j.ia) await pause(600);
   if (!siroter) {
     ajouter(j, pts, `Chouette de ${v}`);
@@ -861,25 +949,22 @@ async function sirotage(j, adv, des) {
 
   log(`🍷 ${j.nom} ${accorder(j, "sirotez votre", "sirote sa")} Chouette de ${v}…`, "info");
   Sons.jouer("sirote");
-  let pari;
-  if (adv.ia) {
-    pari = jet();
-    log(`${adv.nom} crie « ${OISEAUX[pari]} ! »`, "info");
-    Sons.jouer("oiseau");
-    Sons.dire(OISEAUX[pari] + " !", true);
-  } else {
-    pari = await decider(adv, "oiseau", async () => {
+  // Chaque adversaire peut parier sur le dé relancé, dans l'ordre du jeu
+  const paris = [];
+  for (const a of autresQue(P.joueurs.indexOf(j))) {
+    const n = await decider(a, "oiseau", async () => {
       await expliquer("oiseaux");
       conseiller(conseilOiseaux());
       return choisir(`${j.nom} sirote ! Pariez sur le dé relancé (+25 si juste) :`,
         [1, 2, 3, 4, 5, 6].map(n => ({ label: `${n} · ${OISEAUX[n]}`, val: n, classe: "second" }))
           .concat([{ label: "Pas de pari", val: 0, classe: "second" }]), true);
-    }, null, `${adv.nom} choisit un oiseau…`);
-    if (pari) {
-      log(estLocal(adv) ? `Vous criez « ${OISEAUX[pari]} ! »` : `${adv.nom} crie « ${OISEAUX[pari]} ! »`, "info");
-      Sons.jouer("oiseau");
-      Sons.dire(OISEAUX[pari] + " !", !estLocal(adv));
-    }
+    }, () => 1 + Math.floor(aleaIA() * 6), `${a.nom} choisit un oiseau…`);
+    if (!n) continue;
+    paris.push({ joueur: a, n });
+    log(estLocal(a) ? `Vous criez « ${OISEAUX[n]} ! »` : `${a.nom} crie « ${OISEAUX[n]} ! »`, "info");
+    Sons.jouer("oiseau");
+    Sons.dire(OISEAUX[n] + " !", !estLocal(a));
+    if (a.ia) await pause(450);
   }
   if (!estLocal(j)) attente(`${j.nom} relance le dé…`);
 
@@ -901,7 +986,7 @@ async function sirotage(j, adv, des) {
     log(`Le dé tombe sur ${nouveau}. Raté !`, "info");
     ajouter(j, -pts, "Sirotage raté");
   }
-  if (pari && pari === nouveau) ajouter(adv, 25, `pari « ${OISEAUX[pari]} »`);
+  for (const p of paris) if (p.n === nouveau) ajouter(p.joueur, 25, `pari « ${OISEAUX[p.n]} »`);
   await pause(400);
 }
 
@@ -938,23 +1023,26 @@ async function civetHumain(j) {
   return { combi, mise };
 }
 
-// ---------- Décisions de l'adversaire ----------
-function siroterIA(j, adv, v) {
-  if (j.profil.style === "hasard") return Math.random() < 0.5;
+// ---------- Décisions de l'ordinateur ----------
+// Toutes passent par aleaIA() : en ligne, elles sont identiques sur les deux appareils
+const meilleurAutre = j => Math.max(...P.joueurs.filter(x => x !== j).map(x => x.score));
+
+function siroterIA(j, v) {
+  if (j.profil.style === "hasard") return aleaIA() < 0.5;
   if (regles.pile) {
     if (j.score + 40 + 10 * v === CIBLE) return true;
     if (j.score + v * v === CIBLE) return false;
   }
   // Espérance du sirotage : (40 + 10v)/6 − 5v²/6, meilleure que v² seulement pour v ≤ 2
   if (v <= 2) return true;
-  if (v === 3 && adv.score - j.score > 80) return Math.random() < 0.5;
+  if (v === 3 && meilleurAutre(j) - j.score > 80) return aleaIA() < 0.5;
   return false;
 }
 
 function defiIA(grelottin, cible) {
   if (grelottin.profil.style === "hasard") {
-    const combi = auHasard(["chouette", "velute", "cul"]);
-    return { combi, mise: Math.ceil(plafondDefi(grelottin, cible, combi) * hasard(0.3, 1)) };
+    const combi = choixIA(["chouette", "velute", "cul"]);
+    return { combi, mise: Math.ceil(plafondDefi(grelottin, cible, combi) * hasardIA(0.3, 1)) };
   }
   // La Velute est rarement réussie : c'est le défi le plus rentable pour le grelottin
   return { combi: "velute", mise: plafondDefi(grelottin, cible, "velute") };
@@ -964,14 +1052,13 @@ function civetIA(j) {
   if (!j.civet) return null;
   const reste = CIBLE - j.score;
   if (j.profil.style === "hasard") {
-    return Math.random() < 0.08
-      ? { combi: auHasard(["chouette", "velute", "suite", "neant"]), mise: Math.round(hasard(20, MISE_CIVET)) }
+    return aleaIA() < 0.08
+      ? { combi: choixIA(["chouette", "velute", "suite", "neant"]), mise: Math.round(hasardIA(20, MISE_CIVET)) }
       : null;
   }
   // Un Néant ne rapporte rien d'autre : parfait pour finir pile à 343
-  if (regles.pile && reste > 0 && reste <= MISE_CIVET && Math.random() < 0.5) return { combi: "neant", mise: reste };
-  const adv = P.joueurs.find(x => x !== j);
-  if (adv.score - j.score > 150 && Math.random() < 0.3) return { combi: "chouette", mise: MISE_CIVET };
+  if (regles.pile && reste > 0 && reste <= MISE_CIVET && aleaIA() < 0.5) return { combi: "neant", mise: reste };
+  if (meilleurAutre(j) - j.score > 150 && aleaIA() < 0.3) return { combi: "chouette", mise: MISE_CIVET };
   return null;
 }
 
@@ -982,14 +1069,14 @@ function finDePartie(g) {
   const humainGagne = estLocal(g);
   log(`🏆 ${g.nom} ${accorder(g, "atteignez", "atteint")} ${g.score} points et ${accorder(g, "remportez", "remporte")} la partie !`, "alerte");
   $("fin-titre").textContent = humainGagne ? "🏆 Victoire !" : `👑 ${g.nom} l'emporte`;
-  const perdant = P.joueurs.find(x => x !== g);
+  const classement = P.joueurs.filter(x => x !== g).sort((a, b) => b.score - a.score)
+    .map(x => `${estLocal(x) ? "vous" : x.nom} ${x.score}`).join(", ");
   $("fin-texte").textContent = humainGagne
-    ? `Vous atteignez ${g.score} points en ${P.tour} tours. ${perdant.nom} finit à ${perdant.score}.`
-    : `${g.nom} atteint ${g.score} points en ${P.tour} tours. Vous finissez à ${perdant.score}.`;
-  // Le portrait de l'adversaire, qu'il gagne ou qu'il perde
-  const adversaire = P.joueurs.find(x => !estLocal(x) && x.portrait);
-  $("fin-portrait").hidden = !adversaire;
-  if (adversaire) dessinerPortrait($("fin-portrait"), adversaire.nom, adversaire.portrait);
+    ? `Vous atteignez ${g.score} points en ${P.tour} tours. Les autres : ${classement}.`
+    : `${g.nom} atteint ${g.score} points en ${P.tour} tours. Classement des autres : ${classement}.`;
+  // Le portrait du vainqueur
+  $("fin-portrait").hidden = !g.portrait;
+  if (g.portrait) dessinerPortrait($("fin-portrait"), g.nom, g.portrait);
   const bouton = $("btn-rejouer");
   bouton.disabled = false;
   bouton.textContent = P.enLigne ? "⚔️ Revanche" : "Rejouer";
@@ -1002,8 +1089,8 @@ function finDePartie(g) {
 // Appelé par Reseau quand les deux joueurs sont connectés
 function demarrerEnLigne(infos) {
   $("fen-partie").classList.remove("ouvert");
-  // La jauge suit le réglage de l'hôte ; l'invité le reçoit avec chaque manche
-  enLigne = { ...infos, jauge: reglages.jauge, premier: 0, revancheMoi: false, revancheAutre: false };
+  // La jauge et les ordinateurs ajoutés suivent les réglages de l'hôte ; l'invité les reçoit avec chaque manche
+  enLigne = { ...infos, jauge: reglages.jauge, pcs: [...reglages.pcsEnLigne], premier: 0, revancheMoi: false, revancheAutre: false };
   if (enLigne.hote) lancerManche(0);
   else {
     jeton++;
@@ -1017,7 +1104,7 @@ function lancerManche(premier) {
   enLigne.revancheMoi = enLigne.revancheAutre = false;
   const graine = Math.floor(Math.random() * 2 ** 32);
   Reseau.viderFile();
-  Reseau.envoyer("debut", { graine, premier, pile: enLigne.pile, jauge: enLigne.jauge });
+  Reseau.envoyer("debut", { graine, premier, pile: enLigne.pile, jauge: enLigne.jauge, pcs: enLigne.pcs });
   nouvellePartie(false, { graine, premier });
 }
 
@@ -1026,6 +1113,8 @@ Reseau.sur("debut", d => {
   Reseau.viderFile();
   enLigne.pile = !!d.pile;
   enLigne.jauge = !!d.jauge;
+  // Seuls les personnages connus sont acceptés
+  enLigne.pcs = (Array.isArray(d.pcs) ? d.pcs : []).filter(c => ADVERSAIRES[c]).slice(0, MAX_JOUEURS - 2);
   enLigne.premier = d.premier;
   enLigne.revancheMoi = enLigne.revancheAutre = false;
   nouvellePartie(false, { graine: d.graine, premier: d.premier });
@@ -1098,9 +1187,40 @@ function remplirChoixPortraits() {
   });
 }
 
+// Choix des ordinateurs ajoutés à une partie en ligne (0 à 2), dans la fenêtre « Jouer en ligne »
+function remplirChoixPcs() {
+  const zone = $("ligne-pcs");
+  zone.innerHTML = "";
+  for (const [cle, a] of Object.entries(ADVERSAIRES)) {
+    const pris = reglages.pcsEnLigne.includes(cle);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "vignette" + (pris ? " choisie" : "");
+    b.title = a.nom;
+    b.setAttribute("aria-label", "Ajouter " + a.nom);
+    b.setAttribute("aria-pressed", pris);
+    const rond = document.createElement("span");
+    rond.className = "portrait";
+    dessinerPortrait(rond, a.nom, a.portrait);
+    b.appendChild(rond);
+    b.onclick = () => {
+      const liste = reglages.pcsEnLigne.filter(c => c !== cle);
+      // Au plus deux ordinateurs : en choisir un troisième remplace le plus ancien
+      reglages.pcsEnLigne = pris ? liste : [...liste, cle].slice(-(MAX_JOUEURS - 2));
+      sauverReglages();
+      remplirChoixPcs();
+    };
+    zone.appendChild(b);
+  }
+  const n = reglages.pcsEnLigne.length;
+  $("ligne-pcs-resume").textContent = n
+    ? `${2 + n} joueurs : vous, votre ami, ${enumerer(reglages.pcsEnLigne.map(c => ADVERSAIRES[c].nom))}.`
+    : "2 joueurs : vous et votre ami.";
+}
+
 function ouvrirNouvellePartie() {
   $("opt-nom").value = reglages.nom;
-  $("adv-" + reglages.adv).checked = true;
+  document.querySelectorAll("input[name=adv]").forEach(c => { c.checked = reglages.advs.includes(c.value); });
   $("opt-pile").checked = reglages.pile;
   $("opt-aide").checked = reglages.aide;
   $("opt-conseils").checked = reglages.conseils;
@@ -1111,9 +1231,11 @@ function ouvrirNouvellePartie() {
 }
 
 function demarrer(tuto) {
+  const advs = [...document.querySelectorAll("input[name=adv]:checked")].map(c => c.value);
   reglages = {
+    ...reglages,
     nom: $("opt-nom").value.trim() || "Vous",
-    adv: document.querySelector("input[name=adv]:checked").value,
+    advs: advs.length ? advs : ["arthur"],
     pile: $("opt-pile").checked,
     aide: $("opt-aide").checked,
     conseils: $("opt-conseils").checked,
@@ -1210,7 +1332,37 @@ majBoutonSon();
 // Petit clic sur chaque bouton ; ce premier geste autorise aussi le navigateur à jouer des sons
 document.addEventListener("click", e => { if (e.target.closest("button")) Sons.jouer("clic"); });
 
+// Tableau des 56 lancers possibles dans les règles, calculé avec les fonctions du jeu pour ne jamais les contredire
+function remplirTableLancers() {
+  const effet = (des, combi) => {
+    const n = points(des, combi);
+    const pts = `${n} ${n > 1 ? "pts" : "pt"}`;
+    switch (combi) {
+      case "chouette": return `${pts} au lanceur (ou sirotage)`;
+      case "chouette-velute": return `${pts} au premier qui crie`;
+      case "suite": return "−10 pts au dernier qui crie";
+      case "neant": return "0 pt, Grelottine";
+      default: return `${pts} au lanceur`;
+    }
+  };
+  const table = $("table-lancers");
+  table.innerHTML = "<tr><th>Dés</th><th>Combinaison</th><th>Résultat</th></tr>";
+  for (let a = 1; a <= 6; a++) for (let b = a; b <= 6; b++) for (let c = b; c <= 6; c++) {
+    const des = [a, b, c];
+    const combi = analyser(des);
+    const ligne = document.createElement("tr");
+    ligne.className = "combi-" + combi;
+    for (const texte of [des.join(" · "), NOMS[combi], effet(des, combi)]) {
+      const td = document.createElement("td");
+      td.textContent = texte;
+      ligne.appendChild(td);
+    }
+    table.appendChild(ligne);
+  }
+}
+
 elDes.forEach(el => dessinerDe(el, 0));
+remplirTableLancers();
 document.querySelectorAll("[data-adversaire]").forEach(el => {
   const a = ADVERSAIRES[el.dataset.adversaire];
   dessinerPortrait(el, a.nom, a.portrait);

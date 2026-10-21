@@ -56,7 +56,16 @@ button.vert:hover:not(:disabled) { background: #388e3c; }
 button.petit { padding: 6px 10px; font-size: 13px; }
 
 /* Tableau des scores */
-.scores { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.scores { display: grid; grid-template-columns: repeat(var(--joueurs, 2), minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+/* À partir de 3 joueurs : cartes plus compactes pour tenir sur une ligne */
+.scores.compact .joueur { padding: 8px 9px; column-gap: 8px; }
+.scores.compact .joueur > .portrait.carre { grid-row: 1; width: 54px; height: 54px; font-size: 24px; }
+.scores.compact .joueur > .barre, .scores.compact .joueur > .badges { grid-column: 1 / -1; }
+.scores.compact .joueur .score { font-size: 28px; white-space: nowrap; }
+.scores.compact .joueur .score small { font-size: 12px; }
+.scores.compact .joueur .nom { font-size: 13px; }
+.scores.compact .badge-texte { display: none; }
+.scores.compact .flottant { right: 70px; top: 24px; }
 .joueur {
   position: relative;
   background: rgba(0,0,0,.35);
@@ -92,7 +101,8 @@ button.petit { padding: 6px 10px; font-size: 13px; }
 .portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .portrait.grand { width: 120px; height: 120px; font-size: 52px; margin: 0 auto 12px; border-width: 3px; }
 .portrait[hidden] { display: none; }
-.choix-portrait { display: flex; flex-wrap: wrap; gap: 6px; }
+.choix-portrait, .choix-pcs { display: flex; flex-wrap: wrap; gap: 6px; }
+.aide-champ { font-weight: 400; font-size: 14px; color: #6b5a44; }
 .vignette, .vignette:hover:not(:disabled) {
   padding: 0; background: none; border: 3px solid transparent; border-radius: 50%;
   box-shadow: none; transform: none;
@@ -336,6 +346,30 @@ input.lien {
 .adversaires input:checked + label { border-color: var(--rouge); background: #f7e2b5; }
 .case { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; font-weight: 400 !important; }
 .case input { margin-top: 5px; accent-color: var(--rouge); }
+/* Fenêtre des règles : une référence complète pour jouer avec de vrais dés */
+.fenetre.large { max-width: 720px; }
+.regles h3 { scroll-margin-top: 12px; border-bottom: 1px solid #d6c39a; padding-bottom: 3px; margin-top: 22px; }
+.regles h4 { font-family: 'Cinzel', Georgia, serif; font-size: 15px; color: var(--rouge); margin: 14px 0 4px; }
+.regles h4 + p { margin-top: 0; }
+.regles .sommaire {
+  background: #f7e2b5; border-radius: 6px; padding: 8px 10px; font-size: 15px; line-height: 1.7;
+}
+.regles a { color: var(--rouge); }
+.regles .etapes { padding-left: 22px; }
+.regles .etapes li { margin-bottom: 6px; }
+.regles .petit { font-size: 14px; color: #6b5a44; }
+.regles table.bareme th { width: 70px; }
+.regles table.bareme td { text-align: center; font-weight: 600; }
+.regles .exemple {
+  background: #fffaf0; border-left: 4px solid var(--or); border-radius: 6px;
+  padding: 7px 10px; margin: 6px 0; font-size: 15px;
+}
+.regles details { margin-top: 6px; }
+.regles summary { cursor: pointer; color: var(--rouge); font-weight: 600; }
+.tous-lancers { margin-top: 8px; font-size: 14px; }
+.tous-lancers tr:nth-child(even) td { background: rgba(201,176,122,.15); }
+.tous-lancers td:first-child { white-space: nowrap; font-weight: 600; }
+.tous-lancers .combi-cul td:nth-child(2), .tous-lancers .combi-chouette-velute td:nth-child(2) { color: var(--rouge); font-weight: 600; }
 .fenetre .note { font-size: 14px; color: #6b5a44; margin-top: 16px; }
 .fenetre.centre { text-align: center; }
 .pied.centre { justify-content: center; }
@@ -351,6 +385,13 @@ input.lien {
 .reflexe .cris button { font-size: 17px; padding: 18px 10px; background: var(--rouge-vif); }
 .reflexe .cris button.juste { background: var(--vert); opacity: 1; }
 .reflexe .cris button.faux { background: #4a4040; opacity: 1; text-decoration: line-through; }
+/* Cris des ordinateurs, affichés au moment où ils les poussent */
+.reflexe-autres { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; min-height: 30px; margin-top: 10px; }
+.cri-autre {
+  background: #3a2a1d; border: 1px solid var(--or); border-radius: 14px; padding: 3px 10px;
+  font-family: "Cinzel", Georgia, serif; font-size: 14px; color: var(--or-clair); animation: pop .3s ease-out;
+}
+.cri-autre.faux { border-color: #ff6b6b; color: #ff9b9b; }
 .reflexe-texte {
   text-align: left;
   font-size: 16px;
@@ -372,6 +413,9 @@ input.lien {
 .reflexe .pied:empty { display: none; }
 
 @media (max-width: 520px) {
+  .scores.compact { grid-template-columns: 1fr 1fr; }
+  .scores.compact .joueur > .portrait.carre { width: 46px; height: 46px; font-size: 22px; }
+  .scores.compact .flottant { right: auto; }
   body { padding: 10px; font-size: 16px; }
   .adversaires { grid-template-columns: 1fr; }
   .reflexe .cris { grid-template-columns: 1fr; }

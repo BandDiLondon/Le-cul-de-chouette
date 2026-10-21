@@ -4,8 +4,8 @@
 // et seules les décisions des joueurs et leurs temps de réaction passent par le réseau.
 
 const Reseau = (() => {
-  // À augmenter dès que les messages échangés changent (2 : jauge de lancer)
-  const VERSION = 2;
+  // À augmenter dès que les messages échangés changent (2 : jauge de lancer ; 3 : ordinateurs ajoutés)
+  const VERSION = 3;
   const PREFIXE = "cul-de-chouette-";
   const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const URL_EN_LIGNE = "https://banddilondon.github.io/Le-cul-de-chouette/";
@@ -248,6 +248,7 @@ const Reseau = (() => {
     el("ligne-nom").value = reglages.nom === "Vous" ? "" : reglages.nom;
     el("ligne-code").value = code;
     remplirChoixPortraits();
+    remplirChoixPcs();
     el("fen-ligne").classList.add("ouvert");
     (el("ligne-nom").value ? (code ? el("btn-rejoindre") : el("ligne-code")) : el("ligne-nom")).focus();
   }
