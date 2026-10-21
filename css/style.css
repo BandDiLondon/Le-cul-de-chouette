@@ -64,6 +64,16 @@ button.petit { padding: 6px 10px; font-size: 13px; }
   border-radius: 10px;
   padding: 10px 12px;
   transition: border-color .2s, box-shadow .2s;
+  /* Infos à gauche, grand portrait carré à droite sur toute la hauteur */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-content: center;
+}
+.joueur > :not(.portrait) { grid-column: 1; }
+.joueur > .portrait.carre {
+  grid-column: 2; grid-row: 1 / span 3; align-self: center;
+  width: 104px; height: 104px; border-radius: 8px; font-size: 46px;
 }
 .joueur.actif { border-color: var(--or); box-shadow: 0 0 14px rgba(212,167,60,.35); }
 .joueur .entete { display: flex; align-items: center; gap: 10px; }
@@ -89,7 +99,18 @@ button.petit { padding: 6px 10px; font-size: 13px; }
 }
 .vignette:hover:not(:disabled) { border-color: #c9b07a; }
 .vignette.choisie { border-color: var(--rouge); box-shadow: 0 0 0 2px var(--rouge); }
-.vignette .portrait { width: 48px; height: 48px; font-size: 20px; }
+.vignette .portrait {
+  width: 48px; height: 48px; font-size: 20px;
+  position: relative;
+  transition: transform .18s ease-out, border-radius .18s ease-out, box-shadow .18s;
+}
+/* Aperçu agrandi au survol : le portrait passe au premier plan et devient carré pour se voir en entier */
+.vignette:hover .portrait, .vignette:focus-visible .portrait {
+  transform: scale(2.6);
+  border-radius: 6px;
+  z-index: 5;
+  box-shadow: 0 6px 18px rgba(0,0,0,.55);
+}
 .adversaires .portrait { width: 64px; height: 64px; margin: 0 auto 6px; font-size: 28px; }
 .adversaires label { text-align: center; }
 .joueur .nom { font-family: 'Cinzel', serif; font-size: 15px; color: var(--or-clair); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -101,7 +122,7 @@ button.petit { padding: 6px 10px; font-size: 13px; }
 .badge { font-size: 13px; padding: 1px 8px; border-radius: 10px; background: #4a3424; border: 1px solid #6b4e36; }
 .badge.off { opacity: .35; text-decoration: line-through; }
 .flottant {
-  position: absolute; right: 12px; top: 30px;
+  position: absolute; right: 132px; top: 30px;
   font-family: 'Cinzel', serif; font-weight: 800; font-size: 22px;
   animation: monte 1.4s ease-out forwards; pointer-events: none;
 }
@@ -339,7 +360,10 @@ input.lien {
   .reflexe .cris { grid-template-columns: 1fr; }
   header { flex-wrap: wrap; }
   .ligne-choix { grid-template-columns: 1fr; }
-  .joueur .portrait { width: 42px; height: 42px; font-size: 19px; }
+  .joueur { padding: 8px 10px; column-gap: 8px; }
+  .joueur > .portrait.carre { grid-row: 1; width: 52px; height: 52px; font-size: 24px; }
+  .joueur > .barre, .joueur > .badges { grid-column: 1 / -1; }
+  .flottant { right: auto; left: 60px; top: 36px; }
   .adversaires label { display: flex; align-items: center; gap: 10px; text-align: left; }
   .adversaires .portrait { margin: 0; width: 52px; height: 52px; }
   .cri { grid-template-columns: 1fr auto auto; }
