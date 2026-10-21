@@ -76,7 +76,12 @@ const Reseau = (() => {
     partieLancee = true;
     clearTimeout(delaiConnexion);
     el("fen-ligne").classList.remove("ouvert");
-    demarrerEnLigne({ hote, nomMoi, nomAutre, pile: el("ligne-pile").checked });
+    demarrerEnLigne({
+      hote, nomMoi, nomAutre,
+      pile: el("ligne-pile").checked,
+      portraitMoi: reglages.portrait,
+      portraitAutre: String(d.portrait || "")
+    });
   }
 
   // ---------- Connexion ----------
@@ -95,7 +100,7 @@ const Reseau = (() => {
     conn = c;
     c.on("open", () => {
       derniereReception = Date.now();
-      c.send({ t: "bonjour", d: { nom: nomMoi, version: VERSION } });
+      c.send({ t: "bonjour", d: { nom: nomMoi, version: VERSION, portrait: reglages.portrait } });
       statut("Connecté ! Lancement de la partie…");
       clearInterval(battement);
       battement = setInterval(() => {
@@ -241,6 +246,7 @@ const Reseau = (() => {
     formulaireActif(true);
     el("ligne-nom").value = reglages.nom === "Vous" ? "" : reglages.nom;
     el("ligne-code").value = code;
+    remplirChoixPortraits();
     el("fen-ligne").classList.add("ouvert");
     (el("ligne-nom").value ? (code ? el("btn-rejoindre") : el("ligne-code")) : el("ligne-nom")).focus();
   }

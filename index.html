@@ -24,14 +24,24 @@
 
   <section class="scores">
     <div class="joueur" id="carte-0">
-      <div class="nom" id="nom-0">Vous</div>
-      <div class="score"><span id="score-0">0</span> <small>/ 343</small></div>
+      <div class="entete">
+        <div class="portrait" id="portrait-0"></div>
+        <div class="identite">
+          <div class="nom" id="nom-0">Vous</div>
+          <div class="score"><span id="score-0">0</span> <small>/ 343</small></div>
+        </div>
+      </div>
       <div class="barre"><div id="barre-0"></div></div>
       <div class="badges" id="badges-0"></div>
     </div>
     <div class="joueur" id="carte-1">
-      <div class="nom" id="nom-1">Arthur</div>
-      <div class="score"><span id="score-1">0</span> <small>/ 343</small></div>
+      <div class="entete">
+        <div class="portrait" id="portrait-1"></div>
+        <div class="identite">
+          <div class="nom" id="nom-1">Arthur</div>
+          <div class="score"><span id="score-1">0</span> <small>/ 343</small></div>
+        </div>
+      </div>
       <div class="barre"><div id="barre-1"></div></div>
       <div class="badges" id="badges-1"></div>
     </div>
@@ -67,14 +77,18 @@
       <input type="text" id="opt-nom" maxlength="20" value="Vous">
     </div>
     <div class="champ">
+      <label>Votre portrait</label>
+      <div class="choix-portrait"></div>
+    </div>
+    <div class="champ">
       <label>Votre adversaire</label>
       <div class="adversaires">
         <input type="radio" name="adv" id="adv-karadoc" value="karadoc">
-        <label for="adv-karadoc"><b>Karadoc</b>Lent à réagir, joue au petit bonheur.</label>
+        <label for="adv-karadoc"><span class="portrait" data-adversaire="karadoc"></span><b>Karadoc</b>Lent à réagir, joue au petit bonheur.</label>
         <input type="radio" name="adv" id="adv-arthur" value="arthur" checked>
-        <label for="adv-arthur"><b>Arthur</b>Réflexes honnêtes, joue raisonnablement.</label>
+        <label for="adv-arthur"><span class="portrait" data-adversaire="arthur"></span><b>Arthur</b>Réflexes honnêtes, joue raisonnablement.</label>
         <input type="radio" name="adv" id="adv-perceval" value="perceval">
-        <label for="adv-perceval"><b>Perceval</b>Le spécialiste. Rapide et calculateur.</label>
+        <label for="adv-perceval"><span class="portrait" data-adversaire="perceval"></span><b>Perceval</b>Le spécialiste. Rapide et calculateur.</label>
       </div>
     </div>
     <div class="champ">
@@ -129,6 +143,7 @@
 <!-- Fin de partie -->
 <div class="voile" id="fen-fin">
   <div class="fenetre centre">
+    <div class="portrait grand" id="fin-portrait" hidden></div>
     <h2 id="fin-titre"></h2>
     <p id="fin-texte"></p>
     <div class="pied centre"><button class="vert" id="btn-rejouer">Rejouer</button></div>
@@ -144,6 +159,10 @@
       <div class="champ">
         <label for="ligne-nom">Votre nom</label>
         <input type="text" id="ligne-nom" maxlength="20" placeholder="Votre nom de chevalier">
+      </div>
+      <div class="champ">
+        <label>Votre portrait</label>
+        <div class="choix-portrait"></div>
       </div>
       <div class="ligne-choix">
         <div class="carte-choix">

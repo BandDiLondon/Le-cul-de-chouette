@@ -12,11 +12,24 @@ const CHANCES = { chouette: 90, velute: 39, suite: 24, cul: 6, neant: 66 };
 const PLAFOND_DEFI = { chouette: 0.33, velute: 0.25, cul: 0.16 };
 const MISE_CIVET = 102;
 const PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+// portrait : image carrée dans images/ (null = médaillon avec l'initiale)
 const ADVERSAIRES = {
-  karadoc:  { nom: "Karadoc",  reflexe: [1300, 2400], style: "hasard" },
-  arthur:   { nom: "Arthur",   reflexe: [850, 1600],  style: "calcul" },
-  perceval: { nom: "Perceval", reflexe: [550, 1050],  style: "calcul" }
+  karadoc:  { nom: "Karadoc",  reflexe: [1300, 2400], style: "hasard", portrait: "images/karadoc.jpg" },
+  arthur:   { nom: "Arthur",   reflexe: [850, 1600],  style: "calcul", portrait: "images/arthur.jpg" },
+  perceval: { nom: "Perceval", reflexe: [550, 1050],  style: "calcul", portrait: "images/perceval.jpg" }
 };
+
+// Portraits que les joueurs peuvent choisir pour eux-mêmes (images/joueurs/<id>.jpg)
+const PORTRAITS = [
+  { id: "soiffard", nom: "Le soiffard" },
+  { id: "illumine", nom: "L'illuminé" },
+  { id: "pequenaud", nom: "Le péquenaud" },
+  { id: "seigneur", nom: "Le seigneur" },
+  { id: "gamin", nom: "Le gamin" },
+  { id: "princesse", nom: "La princesse" }
+];
+// Reçu d'un autre appareil en ligne : seuls les identifiants connus donnent une image
+const imagePortrait = id => PORTRAITS.some(p => p.id === id) ? `images/joueurs/${id}.jpg` : null;
 
 const $ = id => document.getElementById(id);
 const elDes = [$("de-0"), $("de-1"), $("de-2")];
@@ -67,6 +80,21 @@ function dessinerDe(el, v) {
     el.appendChild(pip);
   }
   el.setAttribute("aria-label", v ? "Dé : " + v : "Dé non lancé");
+}
+
+// Portrait d'un personnage, ou à défaut un médaillon avec son initiale
+function dessinerPortrait(el, nom, image) {
+  el.innerHTML = "";
+  el.classList.toggle("image", !!image);
+  if (image) {
+    const img = document.createElement("img");
+    img.src = image;
+    img.alt = nom;
+    el.appendChild(img);
+  } else {
+    el.textContent = (nom.trim()[0] || "?").toUpperCase();
+    el.setAttribute("aria-hidden", "true");
+  }
 }
 
 function log(texte, classe = "") {
@@ -124,7 +152,7 @@ let reglages = chargerReglages();
 let regles = { ...reglages };
 
 function chargerReglages() {
-  const defaut = { nom: "Vous", adv: "arthur", pile: true, aide: true, conseils: false };
+  const defaut = { nom: "Vous", adv: "arthur", pile: true, aide: true, conseils: false, portrait: "" };
   try { return { ...defaut, ...JSON.parse(localStorage.getItem("cdc-reglages") || "{}") }; }
   catch { return defaut; }
 }
@@ -148,13 +176,14 @@ function nouvellePartie(tuto = false, manche = null) {
     // Les deux appareils rangent les joueurs dans le même ordre : l'hôte d'abord
     const noms = enLigne.hote ? [enLigne.nomMoi, enLigne.nomAutre] : [enLigne.nomAutre, enLigne.nomMoi];
     if (noms[0] === noms[1]) noms[1] += " 2";
+    const portraits = enLigne.hote ? [enLigne.portraitMoi, enLigne.portraitAutre] : [enLigne.portraitAutre, enLigne.portraitMoi];
     moi = enLigne.hote ? 0 : 1;
-    joueurs = noms.map((nom, i) => nouveauJoueur(nom, { distant: i !== moi }));
+    joueurs = noms.map((nom, i) => nouveauJoueur(nom, { distant: i !== moi, portrait: imagePortrait(portraits[i]) }));
     intro = `Partie en ligne contre ${noms[1 - moi]}.`;
   } else {
     regles = tuto ? { ...reglages, adv: "arthur", pile: true, aide: true, conseils: true } : { ...reglages };
     const profil = ADVERSAIRES[regles.adv];
-    joueurs = [nouveauJoueur(regles.nom.trim() || "Vous"), nouveauJoueur(profil.nom, { ia: true, profil })];
+    joueurs = [nouveauJoueur(regles.nom.trim() || "Vous", { portrait: imagePortrait(regles.portrait) }), nouveauJoueur(profil.nom, { ia: true, profil, portrait: profil.portrait })];
     intro = tuto ? `Tutoriel contre ${profil.nom}.` : `Partie contre ${profil.nom}.`;
   }
   const premier = manche ? manche.premier : 0;
@@ -182,6 +211,12 @@ function nouvellePartie(tuto = false, manche = null) {
 function majScores() {
   P.joueurs.forEach((j, i) => {
     $("nom-" + i).textContent = j.nom + (P.enLigne && i === P.moi ? " (vous)" : "");
+    const portrait = $("portrait-" + i);
+    const cle = j.nom + "|" + (j.portrait || "");
+    if (portrait.dataset.pour !== cle) {
+      dessinerPortrait(portrait, j.nom, j.portrait);
+      portrait.dataset.pour = cle;
+    }
     $("score-" + i).textContent = j.score;
     $("barre-" + i).style.width = Math.max(0, Math.min(100, j.score / CIBLE * 100)) + "%";
     $("carte-" + i).classList.toggle("actif", i === P.courant);
@@ -768,6 +803,10 @@ function finDePartie(g) {
   $("fin-texte").textContent = humainGagne
     ? `Vous atteignez ${g.score} points en ${P.tour} tours. ${perdant.nom} finit à ${perdant.score}.`
     : `${g.nom} atteint ${g.score} points en ${P.tour} tours. Vous finissez à ${perdant.score}.`;
+  // Le portrait de l'adversaire, qu'il gagne ou qu'il perde
+  const adversaire = P.joueurs.find(x => !estLocal(x) && x.portrait);
+  $("fin-portrait").hidden = !adversaire;
+  if (adversaire) dessinerPortrait($("fin-portrait"), adversaire.nom, adversaire.portrait);
   const bouton = $("btn-rejouer");
   bouton.disabled = false;
   bouton.textContent = P.enLigne ? "⚔️ Revanche" : "Rejouer";
@@ -844,6 +883,7 @@ function connexionPerdue(nom) {
     log(`🔌 La connexion avec ${nom} a été coupée.`, "alerte");
   }
   $("banniere").textContent = "Connexion perdue";
+  $("fin-portrait").hidden = true;
   $("fin-titre").textContent = "🔌 Connexion perdue";
   $("fin-texte").textContent = `La connexion avec ${nom} a été coupée : la partie s'arrête là.`;
   $("btn-rejouer").disabled = false;
@@ -852,12 +892,34 @@ function connexionPerdue(nom) {
 }
 
 // ---------- Fenêtres ----------
+// Choix de votre portrait, présent dans « Nouvelle partie » et dans « Jouer en ligne »
+function remplirChoixPortraits() {
+  document.querySelectorAll(".choix-portrait").forEach(zone => {
+    zone.innerHTML = "";
+    for (const p of [{ id: "", nom: "Votre initiale" }, ...PORTRAITS]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "vignette" + (reglages.portrait === p.id ? " choisie" : "");
+      b.title = p.nom;
+      b.setAttribute("aria-label", p.nom);
+      b.setAttribute("aria-pressed", reglages.portrait === p.id);
+      const rond = document.createElement("span");
+      rond.className = "portrait";
+      dessinerPortrait(rond, p.id ? p.nom : reglages.nom, imagePortrait(p.id));
+      b.appendChild(rond);
+      b.onclick = () => { reglages.portrait = p.id; sauverReglages(); remplirChoixPortraits(); };
+      zone.appendChild(b);
+    }
+  });
+}
+
 function ouvrirNouvellePartie() {
   $("opt-nom").value = reglages.nom;
   $("adv-" + reglages.adv).checked = true;
   $("opt-pile").checked = reglages.pile;
   $("opt-aide").checked = reglages.aide;
   $("opt-conseils").checked = reglages.conseils;
+  remplirChoixPortraits();
   $("btn-annuler-partie").style.display = P ? "" : "none";
   $("fen-partie").classList.add("ouvert");
 }
@@ -868,7 +930,8 @@ function demarrer(tuto) {
     adv: document.querySelector("input[name=adv]:checked").value,
     pile: $("opt-pile").checked,
     aide: $("opt-aide").checked,
-    conseils: $("opt-conseils").checked
+    conseils: $("opt-conseils").checked,
+    portrait: reglages.portrait
   };
   sauverReglages();
   $("fen-partie").classList.remove("ouvert");
@@ -961,6 +1024,10 @@ majBoutonSon();
 document.addEventListener("click", e => { if (e.target.closest("button")) Sons.jouer("clic"); });
 
 elDes.forEach(el => dessinerDe(el, 0));
+document.querySelectorAll("[data-adversaire]").forEach(el => {
+  const a = ADVERSAIRES[el.dataset.adversaire];
+  dessinerPortrait(el, a.nom, a.portrait);
+});
 ouvrirNouvellePartie();
 // Lien d'invitation (?partie=CODE) : on ouvre directement la fenêtre pour rejoindre
 if (Reseau.codeInvitation()) { $("fen-partie").classList.remove("ouvert"); Reseau.ouvrir(Reseau.codeInvitation()); }

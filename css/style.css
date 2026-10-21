@@ -66,6 +66,32 @@ button.petit { padding: 6px 10px; font-size: 13px; }
   transition: border-color .2s, box-shadow .2s;
 }
 .joueur.actif { border-color: var(--or); box-shadow: 0 0 14px rgba(212,167,60,.35); }
+.joueur .entete { display: flex; align-items: center; gap: 10px; }
+.joueur .identite { min-width: 0; flex: 1; }
+
+/* Portraits des personnages (ou médaillon avec l'initiale) */
+.portrait {
+  width: 54px; height: 54px; flex-shrink: 0;
+  border-radius: 50%; overflow: hidden;
+  border: 2px solid var(--or);
+  background: radial-gradient(circle at 35% 30%, #6b4e36, #2b1d14);
+  box-shadow: 0 2px 6px rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cinzel', Georgia, serif; font-weight: 800; font-size: 24px; color: var(--or-clair);
+}
+.portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.portrait.grand { width: 120px; height: 120px; font-size: 52px; margin: 0 auto 12px; border-width: 3px; }
+.portrait[hidden] { display: none; }
+.choix-portrait { display: flex; flex-wrap: wrap; gap: 6px; }
+.vignette, .vignette:hover:not(:disabled) {
+  padding: 0; background: none; border: 3px solid transparent; border-radius: 50%;
+  box-shadow: none; transform: none;
+}
+.vignette:hover:not(:disabled) { border-color: #c9b07a; }
+.vignette.choisie { border-color: var(--rouge); box-shadow: 0 0 0 2px var(--rouge); }
+.vignette .portrait { width: 48px; height: 48px; font-size: 20px; }
+.adversaires .portrait { width: 64px; height: 64px; margin: 0 auto 6px; font-size: 28px; }
+.adversaires label { text-align: center; }
 .joueur .nom { font-family: 'Cinzel', serif; font-size: 15px; color: var(--or-clair); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .joueur .score { font-family: 'Cinzel', serif; font-size: 34px; font-weight: 800; line-height: 1.1; }
 .joueur .score small { font-size: 14px; color: var(--gris); font-weight: 600; }
@@ -313,6 +339,9 @@ input.lien {
   .reflexe .cris { grid-template-columns: 1fr; }
   header { flex-wrap: wrap; }
   .ligne-choix { grid-template-columns: 1fr; }
+  .joueur .portrait { width: 42px; height: 42px; font-size: 19px; }
+  .adversaires label { display: flex; align-items: center; gap: 10px; text-align: left; }
+  .adversaires .portrait { margin: 0; width: 52px; height: 52px; }
   .cri { grid-template-columns: 1fr auto auto; }
   .cri-texte { grid-column: 1 / -1; }
   .joueur .score { font-size: 28px; }
