@@ -69,6 +69,9 @@ Il n'y a ni compte, ni serveur de jeu, ni statistiques.
 
 - Vos réglages et vos cris enregistrés restent **dans votre navigateur**. Ils ne sont envoyés nulle part.
 - En ligne, les deux navigateurs se parlent **directement**. Le service gratuit [PeerJS](https://peerjs.com/) sert seulement à les mettre en relation au début de la partie.
+- Comme pour un appel vidéo, cette connexion directe rend **votre adresse IP visible par votre adversaire**, ainsi que par le service PeerJS. Jouez en ligne avec des personnes que vous connaissez.
+- Les polices d'écriture viennent de **Google Fonts** : comme pour tout site qui les utilise, Google voit l'adresse IP des visiteurs.
+- Le micro ne s'allume que lorsque vous cliquez sur « Enregistrer », et il s'éteint quand vous fermez la fenêtre des cris. Les enregistrements s'effacent avec les boutons 🗑 et « Tout effacer ».
 
 ## Sous le capot
 
@@ -82,7 +85,8 @@ js/cris.js        enregistrement des cris au micro, nettoyage et sauvegarde
 js/tuto.js        tutoriel, leçons et calcul des conseils
 js/reseau.js      jeu en ligne : salon, connexion, messages
 js/jeu.js         règles, adversaires et déroulement de la partie
-images/           portraits et icônes
+js/vendor/        copie de PeerJS (licence MIT)
+images/           portraits, émotions, chouette volante et icônes
 ```
 
 Quelques choix :
@@ -96,9 +100,20 @@ Quelques choix :
 
 Domaine public ([CC0 1.0](LICENSE)) : copiez, modifiez, réutilisez ce projet comme vous voulez, sans condition ni obligation de citer.
 
-Cela concerne ce que contient ce dépôt (code, textes, sons, illustrations), pas l'univers de *Kaamelott* : ses noms, personnages et répliques restent à leurs auteurs.
+Cela concerne ce que contient ce dépôt (code, textes, sons, illustrations), avec deux exceptions :
+- l'univers de *Kaamelott* : ses noms, personnages et répliques restent à leurs auteurs ;
+- la copie de PeerJS dans `js/vendor/`, qui garde sa propre licence MIT.
 
-Les illustrations (portraits) ont été générées avec Gemini, l'IA de Google.
+## Crédits
+
+| Élément | Origine | Licence |
+|---|---|---|
+| Code, textes, sons et règles du jeu | Ce projet | CC0 1.0 |
+| Portraits des personnages et des joueurs, émotions | Générés avec Gemini (Google) | CC0 1.0, dans la mesure où des droits existent |
+| Chouette volante | Vidéo générée avec Veo (Google Flow), détourée pour le jeu | CC0 1.0, dans la mesure où des droits existent |
+| [PeerJS](https://peerjs.com/) 1.5.4 | Michelle Bu, Eric Zhang et contributeurs | MIT ([texte](js/vendor/LICENSE-peerjs.txt)) |
+| Polices [Cinzel](https://fonts.google.com/specimen/Cinzel) et [EB Garamond](https://fonts.google.com/specimen/EB+Garamond) | Natanael Gama ; Georg Duffner et Octavio Pardo, via Google Fonts | SIL Open Font License 1.1 |
+| Univers, personnages et répliques de *Kaamelott* | Alexandre Astier | Droits réservés à leurs auteurs |
 
 ## Avertissement
 

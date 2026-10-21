@@ -9,7 +9,11 @@ const Reseau = (() => {
   const PREFIXE = "cul-de-chouette-";
   const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const URL_EN_LIGNE = "https://banddilondon.github.io/Le-cul-de-chouette/";
-  const PEERJS = "https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js";
+  // Copie locale de PeerJS 1.5.4 (licence MIT, voir js/vendor/LICENSE-peerjs.txt), identique à celle publiée sur npm :
+  // aucun code n'est chargé depuis un site extérieur
+  const PEERJS = "js/vendor/peerjs.min.js";
+  const TYPES_JEU = ["defi", "lancer", "jauge", "siroter", "oiseau", "cri"];
+  const FILE_MAX = 20;
   const BATTEMENT = 5000;
   const SILENCE_MAX = 70000;
 
@@ -62,11 +66,14 @@ const Reseau = (() => {
     if (msg.t === "quitter") return perdu();
     if (msg.t === "bonjour") return accueillir(msg.d);
     if (ecouteurs.has(msg.t)) return ecouteurs.get(msg.t)(msg.d);
+    // Seuls les types de décisions du jeu sont acceptés ; leur contenu est vérifié à l'arrivée par verifier() (jeu.js)
+    if (!TYPES_JEU.includes(msg.t)) return;
     const w = attentes.get(msg.t);
     if (w && w.length) w.shift().ok(msg.d);
     else {
       if (!file.has(msg.t)) file.set(msg.t, []);
-      file.get(msg.t).push(msg.d);
+      // Une partie normale n'a jamais plus de quelques messages d'avance : au-delà, c'est un envoi abusif
+      if (file.get(msg.t).length < FILE_MAX) file.get(msg.t).push(msg.d);
     }
   }
 
@@ -117,7 +124,9 @@ const Reseau = (() => {
     c.on("error", perdu);
   }
 
-  const nouveauCode = () => Array.from({ length: 5 }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join("");
+  // Code de partie tiré avec le générateur sûr du navigateur. L'alphabet a 32 signes, et 2³² en est un multiple :
+  // le tirage reste parfaitement équitable
+  const nouveauCode = () => Array.from(crypto.getRandomValues(new Uint32Array(5)), n => ALPHABET[n % ALPHABET.length]).join("");
 
   function creer() {
     hote = true;

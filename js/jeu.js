@@ -818,7 +818,7 @@ async function reflexe(combi, des, lanceur) {
     Reseau.envoyer("cri", rMoi);
     $("reflexe-titre").textContent = "…";
     texteReflexe("reflexe-explication", `En attente du cri de ${enumerer(distants.map(i => P.joueurs[i].nom))}…`);
-    for (const i of distants) rs[i] = await garde(Reseau.recevoir("cri"));
+    for (const i of distants) rs[i] = verifier("cri", await garde(Reseau.recevoir("cri")), { attendu });
   }
   const bilan = bilanReflexe(combi, rs);
 
@@ -884,11 +884,46 @@ function duel(attendu, limite, ordis) {
 // ---------- Déroulement d'un tour ----------
 // Une décision prise par un joueur : à l'écran s'il joue ici (puis transmise à l'autre appareil),
 // calculée s'il s'agit de l'ordinateur, ou reçue par le réseau s'il joue en ligne
-async function decider(j, type, choixLocal, choixIA, texteAttente) {
+// ---------- Vérification des décisions reçues en ligne ----------
+// Un adversaire qui modifie son navigateur pourrait envoyer n'importe quoi. Chaque décision reçue est donc vérifiée,
+// et une valeur impossible est remplacée par le choix le plus neutre (pas de défi, pas de Civet, lancer réussi…).
+// Les valeurs d'un joueur honnête passent toujours telles quelles : la partie reste synchronisée.
+const entierEntre = (n, min, max) => Number.isInteger(n) && n >= min && n <= max;
+const estObjet = v => v !== null && typeof v === "object";
+const CRI_MUET = { res: "rien", ms: null, cri: null };
+
+function verifier(type, v, ctx) {
+  switch (type) {
+    case "defi":
+      return estObjet(v) && Object.hasOwn(PLAFOND_DEFI, v.combi) && entierEntre(v.mise, 1, plafondDefi(ctx.grelottin, ctx.cible, v.combi))
+        ? { combi: v.combi, mise: v.mise } : null;
+    case "lancer": // le Civet éventuel
+      return estObjet(v) && ctx.joueur.civet && Object.hasOwn(CHANCES, v.combi) && entierEntre(v.mise, 1, MISE_CIVET)
+        ? { combi: v.combi, mise: v.mise } : null;
+    case "jauge":
+      return estObjet(v) && ["ok", "court", "long"].includes(v.tir) && typeof v.force === "number" && v.force >= 0 && v.force <= 1
+        ? { tir: v.tir, force: v.force } : { tir: "ok", force: 0.5 };
+    case "siroter":
+      return v === true;
+    case "oiseau":
+      return entierEntre(v, 1, 6) ? v : 1;
+    case "cri": {
+      if (!estObjet(v) || !["juste", "faux"].includes(v.res)) return CRI_MUET;
+      if (typeof v.ms !== "number" || !Number.isFinite(v.ms) || v.ms < 0 || v.ms > 10000) return CRI_MUET;
+      const cri = v.res === "juste" ? ctx.attendu : ctx.attendu === GRELOTTE ? PAS_MOU : GRELOTTE;
+      return v.cri === cri ? { res: v.res, ms: v.ms, cri } : CRI_MUET;
+    }
+    default:
+      return null;
+  }
+}
+
+// contexte : ce qu'il faut pour vérifier une décision reçue en ligne (voir verifier())
+async function decider(j, type, choixLocal, choixIA, texteAttente, contexte = {}) {
   if (j.ia) return choixIA();
   if (j.distant) {
     attente(texteAttente);
-    return garde(Reseau.recevoir(type));
+    return verifier(type, await garde(Reseau.recevoir(type)), { joueur: j, ...contexte });
   }
   const v = await choixLocal();
   if (P.enLigne) Reseau.envoyer(type, v ?? null);
@@ -909,7 +944,8 @@ async function boucle() {
     for (const g of autresQue(P.courant)) {
       if (!g.grelottine) continue;
       if (estLocal(g)) await expliquer("defi");
-      const d = await decider(g, "defi", () => defiHumain(g, j), () => defiIA(g, j), `${g.nom} réfléchit à sa Grelottine…`);
+      const d = await decider(g, "defi", () => defiHumain(g, j), () => defiIA(g, j), `${g.nom} réfléchit à sa Grelottine…`,
+        { grelottin: g, cible: j });
       if (d) { defi = { ...d, par: g }; break; }
     }
     if (defi) {
@@ -1220,7 +1256,7 @@ function demarrerEnLigne(infos) {
 function lancerManche(premier) {
   enLigne.premier = premier;
   enLigne.revancheMoi = enLigne.revancheAutre = false;
-  const graine = Math.floor(Math.random() * 2 ** 32);
+  const graine = crypto.getRandomValues(new Uint32Array(1))[0];
   Reseau.viderFile();
   Reseau.envoyer("debut", { graine, premier, pile: enLigne.pile, jauge: enLigne.jauge, pcs: enLigne.pcs });
   nouvellePartie(false, { graine, premier });
@@ -1233,9 +1269,11 @@ Reseau.sur("debut", d => {
   enLigne.jauge = !!d.jauge;
   // Seuls les personnages connus sont acceptés
   enLigne.pcs = (Array.isArray(d.pcs) ? d.pcs : []).filter(c => ADVERSAIRES[c]).slice(0, MAX_JOUEURS - 2);
-  enLigne.premier = d.premier;
+  // La graine et le premier joueur reçus sont vérifiés avant usage
+  const graine = Number.isInteger(d.graine) && d.graine >= 0 && d.graine < 2 ** 32 ? d.graine : 0;
+  enLigne.premier = d.premier === 1 ? 1 : 0;
   enLigne.revancheMoi = enLigne.revancheAutre = false;
-  nouvellePartie(false, { graine: d.graine, premier: d.premier });
+  nouvellePartie(false, { graine, premier: enLigne.premier });
 });
 
 Reseau.sur("revanche", () => {
